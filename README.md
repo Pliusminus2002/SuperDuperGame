@@ -1,5 +1,3 @@
-Taip. Nukopijuok viską žemiau ir įklijuok į README.md. Nieko papildomo. 👇
-
 SuperDuperGame 🎮
 
 SuperDuperGame is a browser-based 3D game built with Three.js.
