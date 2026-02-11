@@ -1,0 +1,4488 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Super Duper game</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='0' y='14'>🎮</text></svg>">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      user-select: none;
+    }
+    canvas#game {
+      display: block;
+    }
+    canvas#minimap {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      width: 180px;
+      height: 180px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      pointer-events: none;
+    }
+    #letter-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(2px);
+  z-index: 10000;
+  pointer-events: auto;
+}
+
+.letter-hidden { display: none !important; }
+
+.letter-paper {
+  width: min(860px, 92vw);
+  max-height: min(78vh, 720px);
+  overflow: auto;
+  padding: 28px 26px 22px;
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  border: 1px solid rgba(60, 35, 10, 0.35);
+
+  /* “pergamentas” */
+  background:
+    radial-gradient(1200px 500px at 20% 10%, rgba(255,255,255,0.22), transparent 60%),
+    radial-gradient(900px 420px at 80% 30%, rgba(0,0,0,0.10), transparent 55%),
+    linear-gradient(180deg, #f2e1b8, #e7cfa0 55%, #ddc08f);
+}
+
+.letter-title {
+  font-size: 26px;
+  letter-spacing: 0.3px;
+  margin-bottom: 12px;
+  color: #3a220f;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+}
+
+.letter-body {
+  font-size: 18px;
+  line-height: 1.55;
+  color: #2a170c;
+  white-space: pre-wrap;
+}
+
+.letter-hint{
+  margin-top: 14px;
+  font-size: 13px;
+  color: rgba(40, 20, 10, 0.6);
+  text-align: right;
+  user-select: none;
+}
+
+/* AIM mini-game taikiniai */
+.aim-target {
+  animation: aimPulse 0.6s infinite alternate;
+}
+
+@keyframes aimPulse {
+  from {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+    /* dialogo burbuliukas ir mini-game žinutė */
+    .dialog-bubble {
+      position: fixed;
+      left: 50%;
+      bottom: 12%;
+      transform: translateX(-50%);
+      max-width: 420px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: rgba(15, 20, 35, 0.95);
+      color: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      display: none;
+      z-index: 10;
+    }
+    .dialog-bubble #dialogText {
+      margin-bottom: 8px;
+    }
+    .dialog-bubble #dialogOptions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .dialog-bubble #dialogOptions button {
+      flex: 1;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      background: rgba(80, 140, 255, 0.9);
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .dialog-bubble #dialogOptions button:hover {
+      background: rgba(120, 170, 255, 1);
+    }
+    .dialog-bubble.small {
+      bottom: 5%;
+      font-size: 14px;
+      max-width: 320px;
+      padding: 6px 10px;
+    }
+  /* 🎬 THE END overlay */
+#end-overlay{
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  display: none;
+  z-index: 20000;
+  pointer-events: none;
+}
+
+#end-text{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 2px;
+}
+
+#end-text .end-line1{
+  font-size: clamp(34px, 6vw, 72px);
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+#end-text .end-line2{
+  font-size: clamp(22px, 4vw, 54px);
+  font-weight: 800;
+  color: #fff;
+}
+
+#end-text .end-heart{
+  color: #ff2b6a;
+}
+  
+  </style>
+</head>
+<body>
+
+  <canvas id="game"></canvas>
+  <canvas id="minimap"></canvas>
+  <!-- 🎬 THE END overlay -->
+<div id="end-overlay" style="display:none;">
+  <div id="end-text">
+    <div class="end-line1">THE END,</div>
+    <div class="end-line2">MY LOVE <span class="end-heart">❤️</span></div>
+  </div>
+</div>
+
+<div id="letter-overlay" class="letter-hidden">
+  <div class="letter-paper">
+    <div class="letter-title" id="letter-title"></div>
+    <div class="letter-body" id="letter-body"></div>
+    <div class="letter-hint">[Enter / Esc / click]</div>
+  </div>
+</div>
+
+  <!-- dialogas NPC A/B/C klausimams -->
+  <div id="dialogContainer" class="dialog-bubble">
+    <div id="dialogText"></div>
+    <div id="dialogOptions">
+      <button data-choice="A">A</button>
+      <button data-choice="B">B</button>
+      <button data-choice="C">C</button>
+    </div>
+  </div>
+
+  <!-- mini-game žinutė / instrukcijos -->
+  <div id="minigameMessage" class="dialog-bubble small">Mini žaidimo vieta</div>
+  <!-- NPC kalbėjimo burbuliukas (princesė / cutscenes) -->
+<div id="npcSpeech" class="dialog-bubble" style="display:none; pointer-events:none;"></div>
+
+  <!-- 1 mini-game: AIM (CS:GO tipo) -->
+  <div id="aimGameOverlay" class="dialog-bubble small" style="display:none; pointer-events:auto;">
+    <div id="aimGameInfo"></div>
+    <div id="aimGameTargetsContainer"
+         style="position:relative; width:260px; height:180px; margin-top:8px;
+                border-radius:8px; background:#050910; overflow:hidden;">
+    </div>
+  </div>
+
+  <!-- 2 mini-game: KLAUSIMŲ TESTAS (apie merginą) -->
+  <div id="quizOverlay" class="dialog-bubble" style="display:none; pointer-events:auto;">
+    <div id="quizQuestion"></div>
+    <div id="quizProgress" style="font-size:13px; opacity:0.8; margin-top:4px;"></div>
+    <div id="quizOptions" style="display:flex; flex-direction:column; gap:6px; margin-top:10px;"></div>
+  </div>
+
+  <!-- 3 mini-game: KORTŲ POROS -->
+  <div id="cardsOverlay" class="dialog-bubble" style="display:none; pointer-events:auto;">
+    <div id="cardsInfo"></div>
+    <div id="cardsGrid"
+         style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:10px;">
+    </div>
+  </div>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    console.log("VERSION TEST: A1");
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+    import { FBXLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/FBXLoader.js';
+let letterOpen = false;
+let letterTypingTimer = null;
+
+function openLetter({ title = "Laiškas", body = "", typeSpeed = 18 } = {}) {
+  const overlay = document.getElementById("letter-overlay");
+  const tEl = document.getElementById("letter-title");
+  const bEl = document.getElementById("letter-body");
+
+  // stop seną typing
+  if (letterTypingTimer) clearInterval(letterTypingTimer);
+  letterTypingTimer = null;
+
+  tEl.textContent = title;
+  bEl.textContent = "";
+  overlay.classList.remove("letter-hidden");
+  letterOpen = true;
+controlsLocked = true;
+
+// sustabdom judėjimą iškart
+if (typeof keys !== 'undefined') {
+  keys.forward = keys.back = keys.left = keys.right = keys.shift = false;
+}
+
+// sustabdom animaciją į idle (jei yra)
+if (typeof fadeToAction === 'function') {
+  fadeToAction('idle', 0.1);
+}
+
+  // typing efektas
+  let i = 0;
+  letterTypingTimer = setInterval(() => {
+    bEl.textContent += body[i] ?? "";
+    i++;
+    if (i >= body.length) {
+      clearInterval(letterTypingTimer);
+      letterTypingTimer = null;
+    }
+  }, typeSpeed);
+
+  // jei turi savo žaidime input lock — čia įstatysi:
+  // controlsEnabled = false;
+}
+
+function closeLetter() {
+  const overlay = document.getElementById("letter-overlay");
+  if (letterTypingTimer) clearInterval(letterTypingTimer);
+  letterTypingTimer = null;
+  overlay.classList.add("letter-hidden");
+  letterOpen = false;
+
+  // ❌ NEBEATRAKINAM ČIA VISADA
+  // controlsLocked = false;
+
+  // jei buvo paprastas laiškas (ne cutscene), leisk judėt:
+  if (!princessScene && !minigameInProgress) {
+    controlsLocked = false;
+  }
+
+  if (princessWaitingForEnter) princessWaitingForEnter = false;
+}
+
+
+document.addEventListener("keydown", (e) => {
+  if (!letterOpen) return;
+  if (e.key === "Enter" || e.key === "Escape") closeLetter();
+});
+
+document.getElementById("letter-overlay").addEventListener("click", () => {
+  if (letterOpen) closeLetter();
+});
+
+    // ---------- BENDRI KINTAMIEJI ----------
+    let scene, camera, renderer;
+    let controlsLocked = false;
+
+    const clock = new THREE.Clock();
+
+    let ninja = null;
+    let mixer = null;
+    
+    const actions = {};
+    
+    let activeAction = null;
+    const BREAKDANCE_YAW_FIX = Math.PI / 2; // jei bus blogai – pakeisim į -Math.PI/2 arba Math.PI
+    const BREAKDANCE_ROLL_FIX = -Math.PI / 2; // jei bus ne ta pusė — pakeisk į +Math.PI/2
+
+let breakdanceGroundOffset = null;
+
+// ---------- AUDIO FAILAI ----------
+const audio = {
+  catPsst: new Audio('./audio/cat psst-242776.mp3'),
+  catMeow: new Audio('./audio/cat moew.mp3'),
+
+  annieTalk: new Audio('./audio/Annie-babble-45052.mp3'),
+  femaleTalk: new Audio('./audio/Female-talking-78916.mp3'),
+  laraTalk: new Audio('./audio/Lara-talking-47375.mp3'),
+  princessTalk: new Audio('./audio/Princess-talk-41825.mp3'),
+
+  deathSound: new Audio('./audio/death-sound-effect-331435.mp3'),
+  respawnKiss: new Audio('./audio/respawn.long-kiss-242243.mp3'),
+};
+// 🎵 BACKGROUND MUSIC
+const music = {
+  forest:    new Audio('./audio/mystery.mp3'),      // 🌲 miškas
+  castle:    new Audio('./audio/liquid.mp3'),       // 🏰 pilis
+  gameRoom:  new Audio('./audio/lana.mp3'),         // 🎮 mini-games
+  princess:  new Audio('./audio/4AM In NY.mp3'),  
+    // 👑 princesė
+  breakdance:new Audio('./audio/breakdance.mp3')    // 💃 finalas
+};
+music.forest._startAt = 30;
+music.princess._startAt = 30;
+music.castle._startAt = 12;
+
+
+// loop + pradinis garsas
+Object.values(music).forEach(m => {
+  m.loop = true;
+  m.volume = 0.5;
+});
+
+// breakdance turi NE-loopintis
+music.breakdance.loop = false;
+
+// 🔊 GARSO BALANSAS
+music.forest.volume = 0.5;
+music.castle.volume = 0.45;
+music.gameRoom.volume = 0.55;
+music.princess.volume = 0.4;
+music.breakdance.volume = 0.6;
+
+audio.deathSound.volume = 1.0;
+audio.respawnKiss.volume = 1.0;
+audio.catPsst.volume = 1.0;
+audio.catMeow.volume = 0.9;
+
+
+function playAudio(sound, volume = 1) {
+  if (!sound) return;
+    const v = Math.min(1, Math.max(0, volume));
+  sound.volume = v;
+  sound.currentTime = 0;
+  sound.play().catch(() => {});
+  
+}
+function playNpcVoice(info) {
+  if (!info) return;
+  if (info.name === 'Annie') {
+    playAudio(audio.annieTalk, 1.0);
+  } else if (info.name === 'Female') {
+    playAudio(audio.femaleTalk, 1);
+  } else if (info.name === 'Lara') {
+    playAudio(audio.laraTalk, 1);
+  }
+}
+
+function stopNpcVoice(info) {
+  if (!info) return;
+  if (info.name === 'Annie') {
+    audio.annieTalk.pause();
+    audio.annieTalk.currentTime = 0;
+  } else if (info.name === 'Female') {
+    audio.femaleTalk.pause();
+    audio.femaleTalk.currentTime = 0;
+  } else if (info.name === 'Lara') {
+    audio.laraTalk.pause();
+    audio.laraTalk.currentTime = 0;
+  }
+}
+
+// kad garsai galėtų groti be limitų ir nestringtų
+Object.values(audio).forEach(a => {
+  a.preload = 'auto';
+});
+// 🔓 Leidžia visiems audio groti po pirmo žaidėjo paspaudimo
+window.addEventListener("pointerdown", () => {
+  Object.values(audio).forEach(a => {
+    a.muted = false;
+  });
+}, { once: true });
+let currentMusic = null;
+let musicOverride = null;
+let lastZone = null;
+
+let audioUnlocked = false;   // <-- PRIDĖTA
+function unlockAudioOnce() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+
+  // atrakinti visus audio (fx + muzika)
+  Object.values(audio).forEach(a => {
+    a.muted = false;
+    a.preload = 'auto';
+  });
+
+  Object.values(music).forEach(m => {
+    m.muted = false;
+    m.preload = 'auto';
+  });
+}
+
+function fadeAudioTo(aud, targetVol, duration = 0.7) {
+  if (!aud) return;
+  const startVol = aud.volume;
+  const t0 = performance.now();
+
+  const step = () => {
+    const t = (performance.now() - t0) / (duration * 1000);
+    if (t >= 1) { aud.volume = targetVol; return; }
+    aud.volume = startVol + (targetVol - startVol) * t;
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function playMusicCrossfade(next, targetVol = 0.38, fadeSec = 0.7) {
+  if (!next) return;
+
+  // išfade’inam seną
+  if (currentMusic && currentMusic !== next) {
+    const prev = currentMusic;
+    fadeAudioTo(prev, 0.0, fadeSec);
+    setTimeout(() => {
+      prev.pause();
+      try { prev.currentTime = 0; } catch(e) {}
+    }, fadeSec * 1000 + 30);
+  }
+
+  // užfade’inam naują
+  currentMusic = next;
+
+  // ✅ start offset (pvz +30s)
+  const startAt = currentMusic._startAt || 0;
+
+  if (currentMusic.readyState >= 1) {
+    try { currentMusic.currentTime = startAt; } catch(e) {}
+  } else {
+    currentMusic.addEventListener('loadedmetadata', () => {
+      try { currentMusic.currentTime = startAt; } catch(e) {}
+    }, { once: true });
+  }
+
+  currentMusic.volume = 0.0;
+  currentMusic.play().catch(() => {});
+  fadeAudioTo(currentMusic, targetVol, fadeSec);
+}
+function isOnBridgeXZ(x, z) {
+  const onSegment1 =
+    z >= BRIDGE_SEG1_Z - BRIDGE_SEG_DEPTH / 2 &&
+    z <= BRIDGE_SEG1_Z + BRIDGE_SEG_DEPTH / 2;
+
+  const onSegment2 =
+    z >= BRIDGE_SEG2_Z - BRIDGE_SEG_DEPTH / 2 &&
+    z <= BRIDGE_SEG2_Z + BRIDGE_SEG_DEPTH / 2;
+
+  const onSegment3 =
+    z >= BRIDGE_SEG3_Z - BRIDGE_SEG_DEPTH / 2 &&
+    z <= BRIDGE_SEG3_Z + BRIDGE_SEG_DEPTH / 2;
+
+  const onAnySegment = onSegment1 || onSegment2 || onSegment3;
+  const onBridgeX = Math.abs(x - BRIDGE_X) <= BRIDGE_SAFE_HALF_WIDTH;
+
+  return onAnySegment && onBridgeX;
+}
+
+function getZone() {
+  if (!ninja) return 'forest';
+
+  const x = ninja.position.x;
+  const z = ninja.position.z;
+
+  // 0) jei ant tilto — visada miško muzika
+  if (isOnBridgeXZ(x, z)) return 'forest';
+
+  // 1) princesės bokštas
+  {
+    const dx = x - PRINCESS_TOWER_CENTER.x;
+    const dz = z - PRINCESS_TOWER_CENTER.y;
+    if (dx*dx + dz*dz < (PRINCESS_TOWER_RADIUS - 1.5) ** 2) return 'princess';
+  }
+
+  // 2) mini-games bokšto kambarys
+  if (isHeroInTowerRoom()) return 'gameRoom';
+
+  // 3) pilies sala (apskritimas)
+  {
+    const dx = x - goalPos.x;
+    const dz = z - goalPos.z;
+    if (dx*dx + dz*dz < (CASTLE_RADIUS - 1.0) ** 2) return 'castle';
+  }
+
+  // 4) kita — miškas
+  return 'forest';
+}
+
+function updateZoneMusic() {
+  if (musicOverride) return;      // pvz. breakdance metu – zonos nekaitaliojam
+  if (!audioUnlocked) return;
+
+  const zone = getZone();
+
+  // ✅ jei zona ta pati, bet muzika dingo arba pauzė – pramušam
+  if (zone === lastZone) {
+    if (!currentMusic) {
+      if (zone === 'forest')   playMusicCrossfade(music.forest,   0.50, 0.20);
+      if (zone === 'castle')   playMusicCrossfade(music.castle,   0.28, 0.8);
+      if (zone === 'gameRoom') playMusicCrossfade(music.gameRoom, 0.55, 0.8);
+      if (zone === 'princess') playMusicCrossfade(music.princess, 0.32, 0.20);
+    } else if (currentMusic.paused) {
+      currentMusic.play().catch(() => {});
+    }
+    return;
+  }
+
+  // zona pasikeitė
+  lastZone = zone;
+
+  if (zone === 'forest')   playMusicCrossfade(music.forest,   0.50, 0.20);
+  if (zone === 'castle')   playMusicCrossfade(music.castle,   0.28, 0.8);
+  if (zone === 'gameRoom') playMusicCrossfade(music.gameRoom, 0.55, 0.8);
+  if (zone === 'princess') playMusicCrossfade(music.princess, 0.32, 0.20);
+}
+
+
+window.addEventListener('click', () => {
+  unlockAudioOnce();
+  lastZone = null;
+  updateZoneMusic();
+}, { once: true });
+
+let hipsBone = null;
+let hipsSavedRot = null;
+let footBones = []; // Left/Right foot/toe bones
+const _tmpV3 = new THREE.Vector3();
+
+
+    // Džiugas
+    let dziugas = null;
+    let dziugasFound = false;
+    let dziugasFollowSpeed = 10;
+
+    // Katinas
+    let cat = null;
+    let catFollowing = false;
+    let catFollowSpeed = 8;
+    const CAT_ROT_OFFSET = -Math.PI / 2; // katinas žiūri tiesiai
+    // Princesė
+    let princess = null;
+    let princessMixer = null;
+    let princessWaitingForEnter = false;
+    let princessApproach = false;
+let princessTalked = false;
+let princessApproachAllowed = false;
+let princessScene = null;         // 'afterMinigames' | 'afterBreakdance' | null
+let princessSceneStarted = false; // kad nepradėtų 100 kartų
+let princessSceneText = '';
+let princessFrozen = false;
+let princessStopPos = null;
+let princessStartPos = null; // <- taip
+ // ✅ čia įsimins kur ji turi sustoti
+// --- princesės "maršrutas" po teleport (ateina -> kraštas -> atgal -> kalba)
+let princessRoutePhase = 'none'; // 'toNinja' | 'toEdge' | 'backToNinja' | 'done'
+let princessEdgeTarget = new THREE.Vector3();
+let princessEdgePos = null;    // fiksuotas krašto taškas (kur ji stovi pradžioj)
+let princessCenterPos = null;  // bokšto centras
+
+
+const PRINCESS_ROT_OFFSET = 0; // jei bus atbulai – pakeisk į Math.PI
+
+    const princessActions = {};
+
+    // Pilis
+    let castleCompleted = false;
+    let castleGate = null;
+    let castleGateOpen = false;
+
+    // Klavišai
+    const keys = { forward:false, back:false, left:false, right:false, shift:false };
+
+    // Šuolis
+    let velY = 0;
+    let onGround = true;
+    let isJumping = false;
+    const GRAVITY = 25;
+    const JUMP_FORCE = 9;
+      let isRespawning = false;
+let deathLetterShown = false;
+
+
+    // Medžiai kolizijai + minimapui
+    const treesData = [];
+    const HERO_RADIUS = 0.5;
+
+    // Minimapas
+    const minimapCanvas = document.getElementById('minimap');
+    const mapCtx = minimapCanvas.getContext('2d');
+    minimapCanvas.width = 180;
+    minimapCanvas.height = 180;
+    const MAP_VIEW_RADIUS = 140;
+
+    // Salos / pozicijos
+    const FOREST_RADIUS = 55;
+    const CASTLE_RADIUS = 40;
+
+    const FOREST_CENTER = new THREE.Vector2(0, 0);
+    const goalPos = { x: 0, z: -130 }; // pilies sala
+
+    // Atskiras bokšto kambarys (3 durys)
+    const TOWER_ROOM_CENTER = new THREE.Vector2(500, 0);
+    const TOWER_ROOM_RADIUS = 20;
+
+    // Princesės bokštas
+    const PRINCESS_TOWER_CENTER = new THREE.Vector2(530, 0);
+    const PRINCESS_TOWER_RADIUS = 12;
+
+    // Pilies geometrija
+    const CASTLE_YARD_HALF_X = 24;
+    const CASTLE_YARD_HALF_Z = 30;
+    const CASTLE_WALL_THICKNESS = 1.2;
+    const CASTLE_GATE_WIDTH = 4;
+    const CASTLE_TOWER_HALF = 7;
+
+    // Tiltas
+    const BRIDGE_WIDTH = 2.4;
+    const BRIDGE_PLANK_HEIGHT = 0.5;
+    const BRIDGE_X = 0;
+    const BRIDGE_SEG_DEPTH = 11;
+    const BRIDGE_GAP = 2.0;
+    const BRIDGE_EXTRA_START = 3;
+
+    const BRIDGE_SEG1_Z = -60 + BRIDGE_EXTRA_START;
+    const BRIDGE_SEG2_Z = BRIDGE_SEG1_Z - BRIDGE_SEG_DEPTH - BRIDGE_GAP;
+    const BRIDGE_SEG3_Z = BRIDGE_SEG2_Z - BRIDGE_SEG_DEPTH - BRIDGE_GAP;
+
+    const BRIDGE_SAFE_HALF_WIDTH = BRIDGE_WIDTH * 0.5;
+    const bridgeSegments = [];
+
+    // Kamera
+    let camYawOffset = 0;
+    let camPitch = 0.25;
+    let isMouseDown = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    // NPC (merginos) + dialogai
+    let npcLoader = null;
+    const npcInfos = []; // { name, mesh, mixer, idleAction, talkAction, walkAction, startPos, state }
+
+    let npcDialogStage = 0; // 0 – nepradėta, 4 – baigta
+    let npcDialogTimer = 0;
+    let npcDialogSequenceStarted = false;
+    let npcWaitingForAnswer = false;
+    let npcCurrentIndex = -1;
+
+    const npcQuestions = [
+  {
+    text: ' 1 klausimas:Koks mylimosios mėgstamiausias metų laikas?',
+    options: [
+      'A)Vasara',
+      'B) Ruduo',
+      'C) Žiema',
+    ],
+    correct: 'C'
+  },
+  {
+    text: '2 klausimas: Kas mylimąją greičiausiai pradžiugina?',
+    options: [
+      'A) Skani kava',
+      'B) Netikėtas komplimentas',
+      'C) Šiltas apkabinimas'
+    ],
+    correct: 'B'
+  },
+  {
+    text: '3 klausimas: Kuria love-language mylimoji kalba stipriausiai?',
+    options: [
+      'A) Words of affirmation (žodžiai)',
+      'B) Physical touch (prisilietimai)',
+      'C) Quality time (laikas)'
+    ],
+    correct: 'C'
+  }
+];
+    // Durys bokšto kambaryje
+       const doorObjects = [];
+    let currentDoorIndex = -1;
+    const miniGamesCompleted = [false, false, false];
+
+    // Mini žaidimų logika (bendri)
+    let activeMinigameDoor = null;  // 0,1,2 arba null
+    let minigameInProgress = false;
+    let minigameTimer = 0;          // sekundės (skaičiuojam per updateMinigameTimer)
+    let minigameFailed = false;
+
+    // 1 mini-game: AIM (taikiniai)
+    let aimScore = 0;
+    let aimSpawnIntervalId = null;
+
+    // 2 mini-game: KLAUSIMŲ TESTAS (apie merginą)
+   const quizQuestions = [
+  {
+    text: 'Kas tavo merginą labiausiai „išveda iš rikiuotės“ kai tu taip darai?',
+    options: [
+      'A) viešoj vietoj palieti vulgariai',
+      'B) Švelniai paliečia',
+      'C) Pašnibžda ką nors mielo'
+    ],
+    correct: 0 // A
+  },
+  {
+    text: 'Kada aš būnu pati mieliausia tau?',
+    options: [
+      'A) Kai esu pavargusi',
+      'B) Kai bandau paslėpti šypseną',
+      'C) Kai mane kažkas sugėdina komplimentu'
+    ],
+    correct: 1 // B
+  },
+  {
+    text: 'Kuris komplimentas man labiausiai patiktų iš tavęs?',
+    options: [
+      'A) „Gražiai atrodai“',
+      'B) „Tu mane žavi labiau nei turėtum“',
+      'C) „Tavo energija labai traukia“'
+    ],
+    correct: 1 // B
+  },
+  {
+    text: 'Ką aš labiausiai mėgstu veikti laisvu laiku?',
+    options: [
+      'A) Klausyt muzikos',
+      'B) Žiūrėti filmus',
+      'C) Būti lauke / pasivaikščioti'
+    ],
+    correct: 0 // A
+  },
+  {
+    text: 'Jei turėčiau rinktis pasimatymo veiklą, ką imčiau?',
+    options: [
+      'A) Važiuot mašina ir klausyt muzikos',
+      'B) Kartu gaminti maistą',
+      'C) Imti spontanišką mini crazy nuotykį'
+    ],
+    correct: 2 // C
+  },
+  {
+    text: 'Kur aš labiau norėčiau nuvykti savaitgalį?',
+    options: [
+      'A) Į miestą su daug šurmulio',
+      'B) Į ramesnę gamtos vietą',
+      'C) Į kino teatrą'
+    ],
+    correct: 1 // B
+  },
+  {
+    text: 'Ką renkuosi, kai noriu atsipalaiduoti?',
+    options: [
+      'A) Karštą dušą/vonę',
+      'B) Filmą ir užklotą',
+      'C) Muziką su ausinėmis'
+    ],
+    correct: 1 // B
+  },
+  {
+    text: 'Kas mano mėgstamiausia gėrimo rūšis?',
+    options: [
+      'A) Kava',
+      'B) Arbata',
+      'C) Limonadas'
+    ],
+    correct: 2 // C
+  },
+  {
+    text: 'Koks mano vibe dažniausiai?',
+    options: [
+      'A) Nervinga',
+      'B) Žaisminga',
+      'C) Truputį paslaptinga'
+    ],
+    correct: 0 // A
+  },
+  {
+    text: 'Ką dažniausiai renkuosi ryte?',
+    options: [
+      'A) Nieko — tiesiog skubu',
+      'B) Lengvą užkandį',
+      'C) Kava'
+    ],
+    correct: 2 // C
+  }
+];
+
+    let quizIndex = 0;
+    let quizScore = 0;
+
+    // 3 mini-game: KORTŲ POROS
+    let cards = [];           // {value, matched, flipped}
+    let firstCardIndex = null;
+    let secondCardIndex = null;
+    let matchedPairs = 0;
+
+
+   // UI elementai
+const dialogContainer = document.getElementById('dialogContainer');
+const dialogTextEl = document.getElementById('dialogText');
+const dialogOptionsEl = document.getElementById('dialogOptions');
+const minigameMessage = document.getElementById('minigameMessage');
+let minigameMessageTimer = 0;
+// --- Princesės kalbėjimo burbuliukas + voice ---
+const npcSpeechEl = document.getElementById('npcSpeech');
+
+function playPrincessVoice(vol = 1.0) {
+  if (!audio?.princessTalk) return;
+  playAudio(audio.princessTalk, vol);
+}
+
+// paprastas "typewriter" (gali išjungt, jei nenori)
+let _speechTimer = null;
+function showNpcSpeech(text, { typeSpeed = 40, autoHide = false, onDone = null } = {}) {
+  if (!npcSpeechEl) return;
+
+  if (_speechTimer) clearInterval(_speechTimer);
+  _speechTimer = null;
+
+  npcSpeechEl.style.display = 'block';
+  npcSpeechEl.textContent = '';
+
+  let i = 0;
+  _speechTimer = setInterval(() => {
+    npcSpeechEl.textContent += text[i] ?? '';
+    i++;
+    if (i >= text.length) {
+      clearInterval(_speechTimer);
+      _speechTimer = null;
+
+      if (autoHide) {
+        setTimeout(() => {
+          npcSpeechEl.style.display = 'none';
+          if (onDone) onDone();
+        }, 900);
+      } else {
+        if (onDone) onDone();
+      }
+    }
+  }, typeSpeed);
+}
+
+function hideNpcSpeech() {
+  if (!npcSpeechEl) return;
+  if (_speechTimer) clearInterval(_speechTimer);
+  _speechTimer = null;
+  npcSpeechEl.style.display = 'none';
+}
+
+// --- LAIŠKAI: naudojam SENOVINĮ pergamentą (#letter-overlay) ---
+let letterCallback = null;
+
+function showLetter(text, buttonLabel = 'Gerai', callback = null) {
+  // buttonLabel paliekam (nieko nelaužom), bet pergamente jis nerodomas
+  letterCallback = callback || null;
+  openLetter({
+    title: "Princesės laiškas",
+    body: text,
+    typeSpeed: 18
+  });
+}
+
+// Uždarymo callback (kai uždarai su Enter/Esc/click)
+const _origCloseLetter = closeLetter;
+closeLetter = function () {
+  _origCloseLetter();
+
+  unlockAudioOnce();
+  // ❌ lastZone = null;  // NEBENULINAM, kad muzika nesirestartintų
+  updateZoneMusic();
+
+  const cb = letterCallback;
+  letterCallback = null;
+  if (cb) cb();
+};
+
+
+// ------------------------------------------------------------
+
+// Istorijos vėliavėlės
+let letterIntroShown = false;
+let letterAfterStartShown = false;
+let letterDziugasShown = false;
+let letterBridgeShown = false;
+let letterCatShown = false;
+let letterTowerShown = false;
+let letterPrincessTaskShown = false;
+let letterFinalShown = false;
+let breakdanceDone = false;
+let breakdanceSavedRot = null; // {x,y,z}
+let ninjaPivot = null;
+let breakdanceFix = null;
+let breakdanceBaseY = 0;
+const BREAKDANCE_RAISE_Y = 0.8; // kiek pakelti (0.6–1.2)
+let showPressMHint = false;
+let kissReady = false;
+const KISS_TARGET_SECONDS = 30; // ✅ kiek sekundžių turi trukti kiss
+
+let kissStarted = false;
+let kissApproach = false;
+let kissAutoTimer = null;
+let kissReadyPoll = null;
+let ninjaKissAction = null;
+let princessKissAction = null;
+
+
+let kissNinjaTarget = new THREE.Vector3();
+let kissPrincessTarget = new THREE.Vector3();
+let pendingKissPress = false;
+let ninjaKissClip = null;
+let princessKissClip = null;
+let kissCamTime = 0;
+const kissCam = {
+  pos: new THREE.Vector3(),
+  mid: new THREE.Vector3(),
+  initialized: false
+};
+// 🎬 THE END sequence
+let endSequenceStarted = false;
+
+function startEndSequence() {
+  if (endSequenceStarted) return;
+  endSequenceStarted = true;
+
+  // užrakinam judėjimą (muzikos NELIEČIAM)
+  controlsLocked = true;
+  keys.forward = keys.back = keys.left = keys.right = keys.shift = false;
+
+  const overlay = document.getElementById('end-overlay');
+  if (!overlay) return;
+
+  overlay.style.display = 'block';
+  overlay.style.opacity = '0';
+
+  const FADE_SEC = 20; // ✅ 30 sekundžių užtemimas
+  const t0 = performance.now();
+
+  const step = () => {
+    const t = (performance.now() - t0) / (FADE_SEC * 1000);
+    const a = Math.min(1, Math.max(0, t));
+    overlay.style.opacity = String(a);
+
+    if (a < 1) requestAnimationFrame(step);
+  };
+
+  requestAnimationFrame(step);
+}
+
+function buildKissActionsIfPossible() {
+  // Ninja
+  if (mixer && ninja && ninjaKissClip && !ninjaKissAction) {
+    ninjaKissAction = mixer.clipAction(ninjaKissClip, ninja); // ✅ root aiškiai = ninja
+    ninjaKissAction.setLoop(THREE.LoopOnce);
+    ninjaKissAction.clampWhenFinished = true;
+  }
+
+  // Princess
+  if (princessMixer && princess && princessKissClip && !princessKissAction) {
+    princessKissAction = princessMixer.clipAction(princessKissClip, princess); // ✅ root aiškiai = princess
+    princessKissAction.setLoop(THREE.LoopOnce);
+    princessKissAction.clampWhenFinished = true;
+  }
+
+  kissReady = !!(ninjaKissAction && princessKissAction);
+
+  // jei M buvo paspaustas anksčiau – paleidžiam kai tik pasiruošė
+  if (kissReady && pendingKissPress && !kissStarted) {
+    pendingKissPress = false;
+    startKissApproach();
+  }
+  console.log('KISS READY?', kissReady, {
+  ninjaClip: !!ninjaKissClip,
+  princessClip: !!princessKissClip,
+  ninjaAction: !!ninjaKissAction,
+  princessAction: !!princessKissAction
+});
+
+}
+
+
+// --- Vienkartiniai "instrukcijų" laiškai ---
+let letterGateEShown = false;
+let lastDoorHintIndex = -2; // kad atsektų, prie kurių durų priėjai
+const doorHintShown = [false, false, false];
+
+
+
+    // Mini-games UI elementai
+    
+    const aimOverlay = document.getElementById('aimGameOverlay');
+    const aimInfo = document.getElementById('aimGameInfo');
+    const aimTargetsContainer = document.getElementById('aimGameTargetsContainer');
+
+    const quizOverlay = document.getElementById('quizOverlay');
+    const quizQuestionEl = document.getElementById('quizQuestion');
+    const quizProgressEl = document.getElementById('quizProgress');
+    const quizOptionsEl = document.getElementById('quizOptions');
+
+    const cardsOverlay = document.getElementById('cardsOverlay');
+    const cardsInfoEl = document.getElementById('cardsInfo');
+    const cardsGridEl = document.getElementById('cardsGrid');
+
+    if (dialogOptionsEl) {
+      dialogOptionsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const choice = btn.dataset.choice || 'A';
+        handleDialogChoice(choice);
+      });
+    }
+    // 1 mini-game: AIM – paspaudus ant taikinio
+if (aimTargetsContainer) {
+  aimTargetsContainer.addEventListener('click', (e) => {
+    if (!minigameInProgress || activeMinigameDoor !== 0) return;
+
+    const targetEl = e.target.closest('.aim-target');
+    if (!targetEl) return;   // nepataikei į taikinį
+
+    // bet kur ant taikinio – +1
+    aimScore += 1;
+    targetEl.remove();
+
+    if (aimInfo) {
+      const left = Math.max(0, Math.ceil(AIM_TIME_LIMIT - minigameTimer));
+      aimInfo.textContent = `Taškai: ${aimScore} | Liko: ${left}s`;
+    }
+  });
+}
+
+
+    // 2 mini-game: QUIZ – paspaudus atsakymo mygtuką
+    if (quizOptionsEl) {
+      quizOptionsEl.addEventListener('click', (e) => {
+        if (!minigameInProgress || activeMinigameDoor !== 1) return;
+        const btn = e.target.closest('button[data-index]');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.index, 10);
+        handleQuizAnswer(idx);
+      });
+    }
+
+    // 3 mini-game: CARDS – paspaudus kortą
+    if (cardsGridEl) {
+      cardsGridEl.addEventListener('click', (e) => {
+        if (!minigameInProgress || activeMinigameDoor !== 2) return;
+        const btn = e.target.closest('button[data-card-index]');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.cardIndex, 10);
+        handleCardClick(idx);
+      });
+    }
+
+    const BREAKDANCE_Y_OFFSET = 0.6;
+
+    // ---------- START ----------
+    init();
+    animate();
+
+    // ---------- DŽIUGAS QUEST ----------
+    function checkDziugasQuest() {
+      if (!ninja || !dziugas || dziugasFound) return;
+      const dx = ninja.position.x - dziugas.position.x;
+      const dz = ninja.position.z - dziugas.position.z;
+      const distSq = dx * dx + dz * dz;
+      if (distSq < 4) {
+        dziugasFound = true;
+        console.log('🎉 Radai Džiugą! Dabar jis seka tave.');
+
+        if (!letterDziugasShown) {
+          letterDziugasShown = true;
+          showLetter(
+           'Tu radai Džiugą. 🫶\n\nDabar — link lavos tilto.\nTik atsargiai…'
+,
+            'Gerai, judu link tilto!'
+          );
+        }
+      }
+    }
+
+
+    function updateFollowerFollow(follower, followSpeed, delta, sideSign) {
+      if (!follower || !ninja) return;
+
+      const behindDist = 2.0;
+      const sideOffset = 0.8;
+
+      const yaw = ninja.rotation.y;
+
+      const backX = ninja.position.x - Math.sin(yaw) * behindDist;
+      const backZ = ninja.position.z - Math.cos(yaw) * behindDist;
+
+      const sideX = Math.cos(yaw) * sideOffset * sideSign;
+      const sideZ = -Math.sin(yaw) * sideOffset * sideSign;
+
+      const targetX = backX + sideX;
+      const targetZ = backZ + sideZ;
+
+      const dx = targetX - follower.position.x;
+      const dz = targetZ - follower.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+
+      const followDistance = 0.25;
+      const catchupDistance = 7.0;
+
+      if (dist > catchupDistance) {
+        const snapPos = { x: targetX, y: 0, z: targetZ };
+        if (isOnSafeGround(snapPos) && !isBlockedByCastleWalls(targetX, targetZ)) {
+          follower.position.x = targetX;
+          follower.position.z = targetZ;
+        }
+        return;
+      }
+
+      if (dist > followDistance) {
+        const dirX = dx / dist;
+        const dirZ = dz / dist;
+
+        const maxStep = followSpeed * delta;
+        const moveDist = Math.min(maxStep, dist - followDistance);
+
+        const newX = follower.position.x + dirX * moveDist;
+        const newZ = follower.position.z + dirZ * moveDist;
+
+        const candidatePos = { x: newX, y: 0, z: newZ };
+        if (isOnSafeGround(candidatePos) && !isBlockedByCastleWalls(newX, newZ)) {
+          follower.position.x = newX;
+          follower.position.z = newZ;
+        }
+      }
+    }
+
+    function updateDziugasFollow(delta) {
+      if (!dziugas || !ninja || !dziugasFound) return;
+      updateFollowerFollow(dziugas, dziugasFollowSpeed, delta, -1);
+      dziugas.rotation.y = ninja.rotation.y - Math.PI / 2;
+      dziugas.position.y = 1.2;
+    }
+
+    // Katinas
+    function updateCatFollow(delta) {
+      if (!cat || !catFollowing || !ninja) return;
+      updateFollowerFollow(cat, catFollowSpeed, delta, +1);
+      cat.rotation.y = ninja.rotation.y + CAT_ROT_OFFSET;
+    }
+
+    // ---------- PILIES "WIN" ----------
+    function checkCastleWin() {
+      if (!ninja || castleCompleted) return;
+
+      const dx = ninja.position.x - goalPos.x;
+      const dz = ninja.position.z - goalPos.z;
+      const distSq = dx * dx + dz * dz;
+      const radiusSq = 10 * 10;
+
+      if (distSq < radiusSq) {
+        if (!dziugasFound) {
+          console.log('🚫 Pirmiausia surask Džiugą miške.');
+        } else if (!catFollowing) {
+          console.log('🚫 Prie pilies vartų su „P“ prisikviesk katiną.');
+        } else {
+          castleCompleted = true;
+          console.log('🎉 MISIJA ĮVYKDYTA! Į pilį atėjote trise – ninja, Džiugas ir katinas.');
+        }
+      }
+    }
+
+    // ---------- VARTAI ----------
+    function tryOpenGate() {
+      if (!castleGate || castleGateOpen || !ninja) return;
+      const gateZ = goalPos.z + CASTLE_YARD_HALF_Z;
+      const dx = ninja.position.x - goalPos.x;
+      const dz = ninja.position.z - gateZ;
+      const distSq = dx * dx + dz * dz;
+      if (distSq < 6 * 6) {
+        castleGateOpen = true;
+        console.log('🚪 Vartai atsidaro!');
+        
+updateZoneMusic();
+
+      }
+    }
+
+    function updateCastleGate(delta) {
+      if (!castleGate) return;
+      const closedY = castleGate.userData.closedY || castleGate.position.y;
+      const openY = closedY + 10;
+      const targetY = castleGateOpen ? openY : closedY;
+      castleGate.position.y = THREE.MathUtils.lerp(
+        castleGate.position.y,
+        targetY,
+        3 * delta
+      );
+    }
+
+    // ---------- KATINO QUEST ----------
+     function tryCharmCat() {
+      if (!cat || catFollowing || !ninja) return;
+
+      const dx = ninja.position.x - cat.position.x;
+      const dz = ninja.position.z - cat.position.z;
+      const distSq = dx*dx + dz*dz;
+
+      // Katinas PER TOLI → tik PSST
+      if (distSq > 4*4) {
+        playAudio(audio.catPsst, 1.0);
+        console.log("🐱 Katinas per toli – priartėk ir tada spausk P.");
+        return;
+      }
+
+      // Katinas pakankamai arti → PRISIJUNGIA
+      catFollowing = true;
+      console.log("🐱 Katinas prisijungė prie tavęs.");
+
+     // laiškas apie vartus ir paneles (PERGAMENTAS)
+if (!letterCatShown) {
+  letterCatShown = true;
+  openLetter({
+    title: "Princesės laiškas",
+body:
+`Gerai… dabar jūs jau tryse. 😼🖤
+
+Prie vartų spausk E.
+
+Viduje tavęs lauks panelės.
+Jos nori sužinoti ant kiek stipriai mane žinai, todėl bus griežtos…
+Atsakyk ramiai ir teisingai.
+
+Aš tikiu tavim.(Visados)
+— Princesė`
+
+  });
+}
+
+      // Meow garsas su švelniu delay
+      setTimeout(() => {
+        playAudio(audio.catMeow, 0.7);
+      }, 300);
+    }
+
+
+    // ---------- INIT ----------
+    function init() {
+      const canvas = document.getElementById('game');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x151d14);
+      scene.fog = new THREE.FogExp2(0x151d14, 0.02);
+
+      camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        600
+      );
+      camera.position.set(0, 4, 10);
+
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+      renderer.setPixelRatio(1.0);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      const dirLight = new THREE.DirectionalLight(0xcfd8ff, 1.4);
+      dirLight.position.set(-10, 18, 5);
+      scene.add(dirLight);
+      const ambient = new THREE.AmbientLight(0xa0b0a0, 0.7);
+      scene.add(ambient);
+
+      const texLoader = new THREE.TextureLoader();
+
+      // pasaulis
+      createWorldGround(texLoader);
+      createForestIsland(texLoader);
+      createLowPolyForest(texLoader);
+      createBigLava(texLoader);
+      createCastlePlatform(texLoader);
+      createCastleBuilding(texLoader);
+      createWideBridge();
+      createTowerRoom(texLoader);
+      createPrincessTowerRoom(texLoader);
+
+      // Ninja
+      const loader = new GLTFLoader();
+      loader.load(
+        './models/ninja@idle.glb',
+        (gltf) => {
+        ninja = gltf.scene;
+ninja.scale.set(1.6, 1.6, 1.6);
+ninja.position.set(0, 0, 0);
+ninja.rotation.y = Math.PI;
+ninja.traverse(o => {
+  if (!o.isBone) return;
+  const n = o.name.toLowerCase();
+
+  if (n.includes('hip')) hipsBone = o;
+
+  // mixamo/kitų rigų pėdos
+  if (n.includes('leftfoot') || n.includes('rightfoot') ||
+      n.includes('mixamorigleftfoot') || n.includes('mixamorigrighfoot') ||
+      n.includes('lefttoe') || n.includes('righttoe') ||
+      n.includes('mixamoriglefttoe') || n.includes('mixamorigrightoe')) {
+    footBones.push(o);
+  }
+});
+
+console.log('HIPS:', hipsBone?.name);
+console.log('FOOT BONES:', footBones.map(b => b.name));
+
+
+// ✅ wrapperis (pivot) – NORMALIAI nieko nekeičia
+ninjaPivot = new THREE.Object3D();
+scene.add(ninjaPivot);
+ninjaPivot.add(ninja);
+
+mixer = new THREE.AnimationMixer(ninja);
+
+// ✅ PRIDĖK ŠITĄ:
+buildKissActionsIfPossible();
+
+
+          if (gltf.animations && gltf.animations.length > 0) {
+            const idleClip = gltf.animations[0];
+            actions.idle = mixer.clipAction(idleClip);
+            activeAction = actions.idle;
+            activeAction.play();
+          }
+function rotateHipsQuatInClip(clip, eulerFix) {
+  const qFix = new THREE.Quaternion().setFromEuler(eulerFix);
+
+  for (const t of clip.tracks) {
+    const n = t.name.toLowerCase();
+    if (!n.endsWith('.quaternion')) continue;
+
+    // taikom tik hips/root tipo kaulams (Mixamo)
+    const looksLikeHips =
+      n.includes('hips') || n.includes('mixamorig:hips') || n.includes('mixamorighips');
+
+    if (!looksLikeHips) continue;
+
+    const v = t.values; // [x,y,z,w,x,y,z,w,...]
+    const q = new THREE.Quaternion();
+
+    for (let i = 0; i < v.length; i += 4) {
+      q.set(v[i], v[i+1], v[i+2], v[i+3]);
+
+      // ✅ pritaikom pasukimą vieną kartą klipui
+      q.premultiply(qFix);
+
+      v[i]   = q.x;
+      v[i+1] = q.y;
+      v[i+2] = q.z;
+      v[i+3] = q.w;
+    }
+  }
+  return clip;
+}
+
+          loadAnim('walk', './models/ninja@walking.glb');
+          loadAnim('run',  './models/ninja@running.glb');
+          loadAnim('jump', './models/ninja@jump.glb');
+        loadAnim('breakdance', './models/ninja_Breakdance.fbx', true);
+// ✅ PIRMAS LAIŠKAS – kai tik užsikrauna herojus
+setTimeout(() => {
+  if (!letterIntroShown) {
+    letterIntroShown = true;
+  
+    openLetter({
+      title: "Princesės laiškas",
+      body:
+`Labas, mylimasis. 🌙
+
+Aš čia… pilyje.
+Viena, liūdna ir įbauginta savo sergėtojų.
+
+Man reikia tavęs.
+Pirmiausia surask Džiugą miške —
+jis tau palaikys kompaniją visam kelyje.
+
+Aš laukiu. ❤️
+— Princesė`
+
+    });
+  }
+}, 400);
+
+        },
+
+        undefined,
+        (err) => console.error('Klaida įkeliant ninja@idle.glb:', err)
+      );
+
+      // Džiugas
+      const donkeyLoader = new GLTFLoader();
+      donkeyLoader.load(
+        './models/dziugas_donkey.glb',
+        (gltf) => {
+          dziugas = gltf.scene;
+          dziugas.scale.set(0.8, 0.8, 0.8);
+
+          let spotFound = false;
+          let px = 0;
+          let pz = 0;
+          let tries = 0;
+
+          while (!spotFound && tries < 100) {
+            tries++;
+            const angle = Math.random() * Math.PI * 2;
+            const rMin = 15;
+            const rMax = FOREST_RADIUS - 5;
+            const r = rMin + Math.random() * (rMax - rMin);
+
+            px = Math.cos(angle) * r;
+            pz = Math.sin(angle) * r;
+
+            const distFromStartSq = px * px + pz * pz;
+            if (distFromStartSq < 18 * 18) continue;
+
+            if (isPositionBlocked(px, pz)) continue;
+            spotFound = true;
+          }
+
+          if (!spotFound) {
+            px = 20;
+            pz = 15;
+          }
+
+          dziugas.position.set(px, 1.2, pz);
+          dziugas.rotation.set(0, Math.PI / 2, 0);
+
+          dziugas.traverse((obj) => {
+            if (obj.isMesh) {
+              obj.castShadow = true;
+              obj.receiveShadow = true;
+            }
+          });
+
+          scene.add(dziugas);
+        },
+        undefined,
+        (err) => console.error('Klaida įkeliant dziugas_donkey.glb:', err)
+      );
+
+      // Katinas prie pilies
+      const catLoader = new GLTFLoader();
+      catLoader.load(
+        './models/siberian.glb',
+        (gltf) => {
+          cat = gltf.scene;
+          cat.scale.set(0.15, 0.15, 0.15);
+          const gateZ = goalPos.z + CASTLE_YARD_HALF_Z + 2;
+          cat.position.set(goalPos.x + 6, 0.4, gateZ + 1);
+          cat.rotation.y = CAT_ROT_OFFSET;
+          cat.traverse((obj) => {
+            if (obj.isMesh) {
+              obj.castShadow = true;
+              obj.receiveShadow = true;
+            }
+          });
+          scene.add(cat);
+        },
+        undefined,
+        (err) => console.error('Klaida įkeliant siberian.glb:', err)
+      );
+
+      // NPC merginos + princesė
+      loadCastleNPCs();
+      loadPrincessNPC();
+
+      // Input
+      window.addEventListener('keydown', (e) => onKeyChange(e, true));
+      window.addEventListener('keyup',   (e) => onKeyChange(e, false));
+
+      canvas.addEventListener('mousedown', (e) => {
+        isMouseDown = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        canvas.style.cursor = 'grabbing';
+      });
+      window.addEventListener('mouseup', () => {
+        isMouseDown = false;
+        canvas.style.cursor = 'default';
+      });
+      window.addEventListener('mouseleave', () => {
+        isMouseDown = false;
+        canvas.style.cursor = 'default';
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!isMouseDown) return;
+        const dx = e.clientX - lastMouseX;
+        const dy = e.clientY - lastMouseY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        camYawOffset -= dx * 0.005;
+        camPitch    -= dy * 0.003;
+        camPitch = Math.max(-0.4, Math.min(0.9, camPitch));
+      });
+
+      window.addEventListener('resize', onResize);
+    }
+
+
+    // ---------- NPC MERGINOS ----------
+    function loadCastleNPCs() {
+      npcLoader = new FBXLoader();
+
+      const configs = [
+        {
+          name: 'Female',
+          idle: './models/Female Standing Pose.fbx',
+          talk: './models/Female Talking.fbx',
+          walk: './models/Female Walking.fbx',
+          offset: new THREE.Vector3(-10, 0, -10),
+          scale: 0.15,
+          yOffset: 0.16
+        },
+        {
+          name: 'Annie',
+          idle: './models/Annie Standing Idle.fbx',
+          talk: './models/Annie Talking.fbx',
+          walk: './models/Annie Walking (1).fbx',
+          offset: new THREE.Vector3(10, 0, -10),
+          scale: 0.014,
+          yOffset: 0.16
+        },
+        {
+          name: 'Lara',
+          idle: './models/Lara Standing Pose.fbx',
+          talk: './models/Lara Talking.fbx',
+          walk: './models/Lara Walking (1).fbx',
+          offset: new THREE.Vector3(0, 0, 10),
+          scale: 0.015,
+          yOffset: 0.16
+        }
+      ];
+
+      configs.forEach(cfg => loadNPCWithSeparateAnimations(cfg));
+    }
+
+    function loadNPCWithSeparateAnimations(cfg) {
+      const info = {
+        name: cfg.name,
+        mesh: null,
+        mixer: null,
+        idleAction: null,
+        talkAction: null,
+        walkAction: null,
+        startPos: null,
+        state: 'idle'
+      };
+      npcInfos.push(info);
+
+      npcLoader.load(cfg.idle, (fbx) => {
+        fbx.scale.set(cfg.scale, cfg.scale, cfg.scale);
+        fbx.position.set(
+          goalPos.x + cfg.offset.x,
+          cfg.yOffset,
+          goalPos.z + cfg.offset.z
+        );
+
+        fbx.traverse((obj) => {
+          if (obj.isMesh) {
+            obj.castShadow = true;
+            obj.receiveShadow = true;
+          }
+        });
+
+        scene.add(fbx);
+        info.mesh = fbx;
+        info.startPos = fbx.position.clone();
+        info.mixer = new THREE.AnimationMixer(fbx);
+
+        // IDLE
+        if (fbx.animations.length > 0) {
+          info.idleAction = info.mixer.clipAction(fbx.animations[0]);
+          info.idleAction.play();
+        }
+
+        // TALK
+        if (cfg.talk) {
+          npcLoader.load(cfg.talk, (talkFBX) => {
+            if (talkFBX.animations.length > 0) {
+              info.talkAction = info.mixer.clipAction(talkFBX.animations[0]);
+            }
+          });
+        }
+
+        // WALK
+        if (cfg.walk) {
+          npcLoader.load(cfg.walk, (walkFBX) => {
+            if (walkFBX.animations.length > 0) {
+              info.walkAction = info.mixer.clipAction(walkFBX.animations[0]);
+            }
+          });
+        }
+      });
+    }
+
+    // ---------- PRINCESĖ ----------
+    function createPrincessTowerRoom(texLoader) {
+      const stoneTex = texLoader.load('./textures/stone floor.jpg');
+      stoneTex.wrapS = stoneTex.wrapT = THREE.RepeatWrapping;
+      stoneTex.repeat.set(3, 3);
+      stoneTex.colorSpace = THREE.SRGBColorSpace;
+
+      const floorGeo = new THREE.CircleGeometry(PRINCESS_TOWER_RADIUS, 48);
+      const floorMat = new THREE.MeshPhongMaterial({ map: stoneTex });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.set(PRINCESS_TOWER_CENTER.x, 0, PRINCESS_TOWER_CENTER.y);
+      scene.add(floor);
+
+      const wallMat = new THREE.MeshPhongMaterial({ color: 0x444444 });
+      const wallHeight = 5;
+      const wallThickness = 0.7;
+      const cX = PRINCESS_TOWER_CENTER.x;
+      const cZ = PRINCESS_TOWER_CENTER.y;
+
+      const wallGeoFB = new THREE.BoxGeometry(PRINCESS_TOWER_RADIUS * 2, wallHeight, wallThickness);
+      const wallGeoSide = new THREE.BoxGeometry(wallThickness, wallHeight, PRINCESS_TOWER_RADIUS * 2);
+
+      const front = new THREE.Mesh(wallGeoFB, wallMat);
+      front.position.set(cX, wallHeight / 2, cZ + PRINCESS_TOWER_RADIUS);
+      scene.add(front);
+
+      const back = new THREE.Mesh(wallGeoFB, wallMat);
+      back.position.set(cX, wallHeight / 2, cZ - PRINCESS_TOWER_RADIUS);
+      scene.add(back);
+
+      const left = new THREE.Mesh(wallGeoSide, wallMat);
+      left.position.set(cX - PRINCESS_TOWER_RADIUS, wallHeight / 2, cZ);
+      scene.add(left);
+
+      const right = new THREE.Mesh(wallGeoSide, wallMat);
+      right.position.set(cX + PRINCESS_TOWER_RADIUS, wallHeight / 2, cZ);
+      scene.add(right);
+    }
+function stripRootMotionFromFBXClip(clip) {
+  // išmetam position track’us tik "root/armature/hips", kad animacija nestumtų į priekį
+  const ROOT_KEYS = ['root', 'armature', 'mixamorigarmature', 'mixamorig:armature'];
+  const HIPS_KEYS = ['hips', 'mixamorighips', 'mixamorig:hips'];
+
+  clip.tracks = clip.tracks.filter(t => {
+    const n = t.name.toLowerCase();
+    if (!n.endsWith('.position')) return true;
+
+    // jei tai root/hips pozicijos trackas – išmetam
+    if (ROOT_KEYS.some(k => n.includes(k))) return false;
+    if (HIPS_KEYS.some(k => n.includes(k))) return false;
+
+    return true;
+  });
+
+  return clip;
+}
+function loadKissAnims() {
+  const loader = new FBXLoader();
+
+  // 1) Ninja kiss CLIP
+  loader.load('./models/ninja_Kiss.fbx', (fbx) => {
+    if (fbx.animations && fbx.animations.length > 0) {
+      let clip = fbx.animations[0];
+      clip = stripRootMotionKeepHipsY(clip); // kad nestumtų per kambarį
+clip = rotateHipsQuatInClip(clip, new THREE.Euler(-Math.PI / 2, 0, 0));
+
+      ninjaKissClip = clip; // ✅ SAUGOM CLIP, ne action
+      console.log('💋 Ninja kiss clip loaded');
+
+      buildKissActionsIfPossible(); // ✅ bandome sukurti action, jei jau yra mixer
+    }
+  });
+
+  // 2) Princess kiss CLIP
+  loader.load('./models/princes_Kiss.fbx', (fbx) => {
+    if (fbx.animations && fbx.animations.length > 0) {
+      let clip = fbx.animations[0];
+      clip = stripRootMotionFromFBXClip(clip);
+
+      princessKissClip = clip; // ✅ SAUGOM CLIP
+      console.log('💋 Princess kiss clip loaded');
+
+      buildKissActionsIfPossible();
+    }
+  });
+}
+
+    // Princesė – turi idle / walk / talking animacijas, bet NĖRA dialogų sekoje
+    function loadPrincessNPC() {
+      const loader = new FBXLoader();
+
+
+
+
+
+      // 1) pagrindinis modelis su idle animacija (standing pose)
+      loader.load(
+        './models/princesStandingPose.fbx',
+        (fbx) => {
+          princess = fbx;
+
+          const scale = 0.015;
+          princess.scale.set(scale, scale, scale);
+
+          // pastatom princesę savo bokšto viduje
+          princess.position.set(
+            PRINCESS_TOWER_CENTER.x,
+            0,
+            PRINCESS_TOWER_CENTER.y - 3
+          );
+          princess.rotation.y += Math.PI; // kad žiūrėtų į žaidėją
+
+          princess.traverse((obj) => {
+            if (obj.isMesh) {
+              obj.castShadow = true;
+              obj.receiveShadow = true;
+            }
+          });
+
+          scene.add(princess);
+// ✅ paslepiam princesę iki tol, kol baigti mini-games
+princess.visible = false;
+princessApproachAllowed = false;
+princessFrozen = false;
+
+          // animacijos mixeris
+          princessMixer = new THREE.AnimationMixer(princess);
+loadKissAnims(); // ✅ čia
+buildKissActionsIfPossible();
+
+          // IDLE animacija iš princesStandingPose.fbx
+          if (fbx.animations && fbx.animations.length > 0) {
+            princessActions.idle = princessMixer.clipAction(fbx.animations[0]);
+            princessActions.idle.play();
+          }
+
+          // 2) TALK animacija
+          loader.load(
+            './models/princes Talking.fbx',
+            (talkFBX) => {
+              if (!princessMixer) return;
+              if (talkFBX.animations && talkFBX.animations.length > 0) {
+                let clip = talkFBX.animations[0];
+clip = stripRootMotionFromFBXClip(clip);
+princessActions.talk = princessMixer.clipAction(clip);
+
+                // kol kas nenaudojam, bet turėsim ateičiai dialogams
+              }
+            }
+          );
+
+          // 3) WALK animacija
+          loader.load(
+            './models/princes walk.fbx',
+            (walkFBX) => {
+              if (!princessMixer) return;
+              if (walkFBX.animations && walkFBX.animations.length > 0) {
+                let clip = walkFBX.animations[0];
+clip = stripRootMotionFromFBXClip(clip);
+princessActions.walk = princessMixer.clipAction(clip);
+
+                // irgi pasiliekam ateičiai
+              }
+            }
+          );
+        },
+        undefined,
+        (err) => console.error('Klaida įkeliant princesę:', err)
+      );
+
+      }
+    // ---------- GEOMETRIJA ----------
+    function createWorldGround(texLoader) {
+      const grassTex = texLoader.load('./textures/grass ground.jpg');
+      grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping;
+      grassTex.repeat.set(20, 20);
+      grassTex.colorSpace = THREE.SRGBColorSpace;
+
+      const groundGeo = new THREE.PlaneGeometry(260, 260);
+      const groundMat = new THREE.MeshPhongMaterial({ map: grassTex });
+
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.set(0, -0.12, -65);
+      scene.add(ground);
+    }
+
+    function createForestIsland(texLoader) {
+      const grassTex = texLoader.load('./grass.png');
+      grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping;
+      grassTex.repeat.set(6, 6);
+      grassTex.colorSpace = THREE.SRGBColorSpace;
+
+      const islandGeo = new THREE.CircleGeometry(FOREST_RADIUS, 48);
+      const islandMat = new THREE.MeshPhongMaterial({ map: grassTex });
+
+      const island = new THREE.Mesh(islandGeo, islandMat);
+      island.rotation.x = -Math.PI / 2;
+      island.position.set(0, 0, 0);
+
+      scene.add(island);
+    }
+
+    function createCastlePlatform(texLoader) {
+      const stoneTex = texLoader.load('./textures/stone floor.jpg');
+      stoneTex.wrapS = stoneTex.wrapT = THREE.RepeatWrapping;
+      stoneTex.repeat.set(6, 6);
+      stoneTex.colorSpace = THREE.SRGBColorSpace;
+
+      const geo = new THREE.CircleGeometry(CASTLE_RADIUS, 64);
+      const mat = new THREE.MeshPhongMaterial({ map: stoneTex });
+
+      const platform = new THREE.Mesh(geo, mat);
+      platform.rotation.x = -Math.PI / 2;
+      platform.position.set(goalPos.x, 0.14, goalPos.z);
+
+      scene.add(platform);
+    }
+
+    function createCastleBuilding(texLoader) {
+      const wallTex = texLoader.load('./textures/cobblestone.jpg');
+      wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+      wallTex.repeat.set(3, 2);
+      wallTex.colorSpace = THREE.SRGBColorSpace;
+
+      const wallMat = new THREE.MeshPhongMaterial({ map: wallTex });
+
+      const castleGroup = new THREE.Group();
+
+      const centerX = goalPos.x;
+      const centerZ = goalPos.z;
+
+      const yardHalfX = CASTLE_YARD_HALF_X;
+      const yardHalfZ = CASTLE_YARD_HALF_Z;
+
+      const wallThickness = CASTLE_WALL_THICKNESS;
+      const wallHeight = 10;
+
+      const frontZ = centerZ + yardHalfZ;
+      const backZ  = centerZ - yardHalfZ;
+
+      const gateHalf = CASTLE_GATE_WIDTH * 0.5;
+      const frontSegmentWidth = yardHalfX - gateHalf;
+
+      const frontGeo = new THREE.BoxGeometry(frontSegmentWidth, wallHeight, wallThickness);
+
+      const frontLeft = new THREE.Mesh(frontGeo, wallMat);
+      frontLeft.position.set(
+        centerX - (gateHalf + frontSegmentWidth * 0.5),
+        wallHeight / 2 + 0.14,
+        frontZ - wallThickness / 2
+      );
+      castleGroup.add(frontLeft);
+
+      const frontRight = new THREE.Mesh(frontGeo, wallMat);
+      frontRight.position.set(
+        centerX + (gateHalf + frontSegmentWidth * 0.5),
+        wallHeight / 2 + 0.14,
+        frontZ - wallThickness / 2
+      );
+      castleGroup.add(frontRight);
+
+      const gateDoorGeo = new THREE.BoxGeometry(
+        CASTLE_GATE_WIDTH,
+        wallHeight * 0.8,
+        wallThickness * 0.5
+      );
+      const gateDoorMat = new THREE.MeshPhongMaterial({ color: 0x5c3a1a });
+
+      castleGate = new THREE.Mesh(gateDoorGeo, gateDoorMat);
+      castleGate.position.set(
+        centerX,
+        wallHeight * 0.4 + 0.14,
+        frontZ - wallThickness * 0.25
+      );
+      castleGate.rotation.y = Math.PI;
+      castleGate.userData.closedY = castleGate.position.y;
+      castleGroup.add(castleGate);
+
+      const backGeo = new THREE.BoxGeometry(
+        yardHalfX * 2 + wallThickness,
+        wallHeight,
+        wallThickness
+      );
+      const backWall = new THREE.Mesh(backGeo, wallMat);
+      backWall.position.set(centerX, wallHeight / 2 + 0.14, backZ);
+      castleGroup.add(backWall);
+
+      const sideGeo = new THREE.BoxGeometry(
+        wallThickness,
+        wallHeight,
+        yardHalfZ * 2 + wallThickness
+      );
+      const leftWall = new THREE.Mesh(sideGeo, wallMat);
+      leftWall.position.set(centerX - yardHalfX, wallHeight / 2 + 0.14, centerZ);
+      castleGroup.add(leftWall);
+
+      const rightWall = leftWall.clone();
+      rightWall.position.x = centerX + yardHalfX;
+      castleGroup.add(rightWall);
+
+      const towerGeo = new THREE.BoxGeometry(8, 16, 8);
+      const tower = new THREE.Mesh(towerGeo, wallMat);
+      tower.position.set(centerX, 16 / 2 + 0.14, centerZ);
+      castleGroup.add(tower);
+
+      scene.add(castleGroup);
+    }
+
+    function createBigLava(texLoader) {
+      const lavaBase = texLoader.load('./textures/lava_base.jpg');
+      const lavaEmissive = texLoader.load('./textures/lava_emissive.jpg');
+      const lavaNormal = texLoader.load('./textures/lava_normal.jpg');
+
+      [lavaBase, lavaEmissive, lavaNormal].forEach((tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(8, 8);
+        tex.colorSpace = THREE.SRGBColorSpace;
+      });
+
+      const lavaMat = new THREE.MeshStandardMaterial({
+        map: lavaBase,
+        emissive: new THREE.Color(0xff4400),
+        emissiveMap: lavaEmissive,
+        emissiveIntensity: 2.0,
+        normalMap: lavaNormal,
+      });
+
+      const lavaGeo = new THREE.PlaneGeometry(260, 260);
+      const lava = new THREE.Mesh(lavaGeo, lavaMat);
+      lava.rotation.x = -Math.PI / 2;
+      lava.position.set(0, -0.1, -65);
+
+      scene.add(lava);
+    }
+
+    function createWideBridge() {
+      const bridgeGroup = new THREE.Group();
+
+      const deckMat = new THREE.MeshPhongMaterial({ color: 0x4b3a28 });
+      const postMat = new THREE.MeshPhongMaterial({ color: 0x3a2a1c });
+      const railMat = new THREE.MeshPhongMaterial({ color: 0x2c1d12 });
+
+      const postGeo = new THREE.CylinderGeometry(0.08, 0.1, 1.1, 6);
+      const railGeo = new THREE.BoxGeometry(0.08, 0.12, BRIDGE_SEG_DEPTH - 1);
+
+      function makeBridgeSegment(zCenter) {
+        const seg = new THREE.Mesh(
+          new THREE.BoxGeometry(BRIDGE_WIDTH, BRIDGE_PLANK_HEIGHT, BRIDGE_SEG_DEPTH),
+          deckMat
+        );
+        seg.position.set(BRIDGE_X, -BRIDGE_PLANK_HEIGHT / 3, zCenter);
+        seg.castShadow = seg.receiveShadow = true;
+        seg.userData.baseY = seg.position.y;
+        bridgeSegments.push(seg);
+        bridgeGroup.add(seg);
+
+        const halfDepth = BRIDGE_SEG_DEPTH / 2;
+        const xLeft  = BRIDGE_X - BRIDGE_WIDTH / 2 + 0.2;
+        const xRight = BRIDGE_X + BRIDGE_WIDTH / 2 - 0.2;
+        const zFront = zCenter - halfDepth + 0.7;
+        const zBack  = zCenter + halfDepth - 0.7;
+        const yPost  = 0.9;
+
+        function addPost(px, pz) {
+          const post = new THREE.Mesh(postGeo, postMat);
+          post.position.set(px, yPost, pz);
+          post.castShadow = post.receiveShadow = true;
+          bridgeGroup.add(post);
+        }
+
+        addPost(xLeft,  zFront);
+        addPost(xRight, zFront);
+        addPost(xLeft,  zBack);
+        addPost(xRight, zBack);
+
+        const railLeft = new THREE.Mesh(railGeo, railMat);
+        railLeft.position.set(xLeft, yPost + 0.45, zCenter);
+        railLeft.castShadow = railLeft.receiveShadow = true;
+        bridgeGroup.add(railLeft);
+
+        const railRight = new THREE.Mesh(railGeo, railMat);
+        railRight.position.set(xRight, yPost + 0.45, zCenter);
+        railRight.castShadow = railRight.receiveShadow = true;
+        bridgeGroup.add(railRight);
+      }
+
+      makeBridgeSegment(BRIDGE_SEG1_Z);
+      makeBridgeSegment(BRIDGE_SEG2_Z);
+      makeBridgeSegment(BRIDGE_SEG3_Z);
+
+      scene.add(bridgeGroup);
+    }
+
+    function updateBridgeWobble() {
+      for (const seg of bridgeSegments) {
+        seg.position.y = seg.userData.baseY;
+        seg.rotation.z = 0;
+      }
+    }
+
+    function createLowPolyForest(texLoader) {
+      const trunkGeo = new THREE.CylinderGeometry(0.15, 0.25, 1.8, 6);
+      const trunkMat = new THREE.MeshPhongMaterial({ color: 0x3b2b1a });
+
+      const treeTex = texLoader.load('./textures/tree_snow.png');
+      treeTex.colorSpace = THREE.SRGBColorSpace;
+
+      const treeMat = new THREE.MeshBasicMaterial({
+        map: treeTex,
+        transparent: true,
+        alphaTest: 0.4,
+        side: THREE.DoubleSide
+      });
+
+      const treeGeo = new THREE.PlaneGeometry(3, 5);
+      const treeCount = 100;
+
+      const innerRadius = 6;
+      const outerRadius = FOREST_RADIUS - 3;
+
+      const treeGroup = new THREE.Group();
+
+      let placed = 0;
+      let tries = 0;
+
+      while (placed < treeCount && tries < treeCount * 4) {
+        tries++;
+        const angle = Math.random() * Math.PI * 2;
+        const radius = innerRadius + (outerRadius - innerRadius) * Math.random();
+
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = 0;
+
+        const inBridgeCorridor =
+          Math.abs(x - BRIDGE_X) < BRIDGE_WIDTH * 2 &&
+          z < 8 && z > (BRIDGE_SEG1_Z - BRIDGE_SEG_DEPTH);
+        if (inBridgeCorridor) continue;
+
+        let scale;
+        const r = Math.random();
+        if (r < 0.25) {
+          scale = 1.5 + Math.random() * 2;
+        } else if (r < 0.7) {
+          scale = 0.9 + Math.random() * 1;
+        } else {
+          scale = 0.5 + Math.random() * 0.5;
+        }
+
+        const tree = new THREE.Group();
+
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.scale.setScalar(scale);
+        trunk.position.set(0, 0.9 * scale, 0);
+        tree.add(trunk);
+
+        const plane1 = new THREE.Mesh(treeGeo, treeMat);
+        plane1.scale.setScalar(scale);
+        plane1.position.set(0, 2.2 * scale, 0);
+        tree.add(plane1);
+
+        const plane2 = new THREE.Mesh(treeGeo, treeMat);
+        plane2.scale.setScalar(scale);
+        plane2.position.set(0, 2.2 * scale, 0);
+        plane2.rotation.y = Math.PI / 2;
+        tree.add(plane2);
+
+        tree.position.set(x, y, z);
+
+        treeGroup.add(tree);
+        treesData.push({ x, z });
+        placed++;
+      }
+
+      scene.add(treeGroup);
+      
+    }
+
+    // BOKŠTO KAMBARYS – 3 durys
+    function createTowerRoom(texLoader) {
+      const stoneTex = texLoader.load('./textures/stone floor.jpg');
+      stoneTex.wrapS = stoneTex.wrapT = THREE.RepeatWrapping;
+      stoneTex.repeat.set(4, 4);
+      stoneTex.colorSpace = THREE.SRGBColorSpace;
+
+      const floorGeo = new THREE.CircleGeometry(TOWER_ROOM_RADIUS, 48);
+      const floorMat = new THREE.MeshPhongMaterial({ map: stoneTex });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.set(TOWER_ROOM_CENTER.x, 0, TOWER_ROOM_CENTER.y);
+      scene.add(floor);
+
+      const wallMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+      const wallHeight = 6;
+      const wallThickness = 0.8;
+      const wCenterX = TOWER_ROOM_CENTER.x;
+      const wCenterZ = TOWER_ROOM_CENTER.y;
+
+      const wallGeoFrontBack = new THREE.BoxGeometry(TOWER_ROOM_RADIUS * 2, wallHeight, wallThickness);
+      const wallGeoSide = new THREE.BoxGeometry(wallThickness, wallHeight, TOWER_ROOM_RADIUS * 2);
+
+      const wallFront = new THREE.Mesh(wallGeoFrontBack, wallMat);
+      wallFront.position.set(wCenterX, wallHeight / 2, wCenterZ + TOWER_ROOM_RADIUS);
+      scene.add(wallFront);
+
+      const wallBack = new THREE.Mesh(wallGeoFrontBack, wallMat);
+      wallBack.position.set(wCenterX, wallHeight / 2, wCenterZ - TOWER_ROOM_RADIUS);
+      scene.add(wallBack);
+
+      const wallLeft = new THREE.Mesh(wallGeoSide, wallMat);
+      wallLeft.position.set(wCenterX - TOWER_ROOM_RADIUS, wallHeight / 2, wCenterZ);
+      scene.add(wallLeft);
+
+      const wallRight = new THREE.Mesh(wallGeoSide, wallMat);
+      wallRight.position.set(wCenterX + TOWER_ROOM_RADIUS, wallHeight / 2, wCenterZ);
+      scene.add(wallRight);
+
+      // durys
+      const doorGeo = new THREE.BoxGeometry(2, 4, 0.4);
+      const doorMat = new THREE.MeshPhongMaterial({ color: 0x555555 });
+
+      const positions = [
+        new THREE.Vector3(wCenterX - 6, 2, wCenterZ - 3),
+        new THREE.Vector3(wCenterX,     2, wCenterZ - 6),
+        new THREE.Vector3(wCenterX + 6, 2, wCenterZ - 3)
+      ];
+
+      positions.forEach((p) => {
+        const door = new THREE.Mesh(doorGeo, doorMat);
+        door.position.copy(p);
+        scene.add(door);
+        doorObjects.push(door);
+      });
+    }
+
+    // ---------- ANIMACIJOS (ninja) ----------
+// ---------- ANIMACIJOS (ninja) ----------
+function stripRootMotionKeepHipsY(clip) {
+  const ROOT = ['root', 'armature', 'mixamorigarmature', 'mixamorig:armature'];
+  const HIPS = ['hips', 'mixamorighips', 'mixamorig:hips'];
+
+  clip.tracks = clip.tracks.filter(t => {
+    const n = t.name.toLowerCase();
+    const isPos  = n.endsWith('.position');
+    const isQuat = n.endsWith('.quaternion');
+
+    if (isPos  && ROOT.some(r => n.includes(r))) return false;
+    if (isQuat && ROOT.some(r => n.includes(r))) return false;
+
+    return true;
+  });
+
+   for (const t of clip.tracks) {
+    const n = t.name.toLowerCase();
+    if (!n.endsWith('.position')) continue;
+    if (!HIPS.some(h => n.includes(h))) continue;
+
+    const v = t.values;
+    const x0 = v[0];
+    const y0 = v[1];   // ✅ PRIDĖTA
+    const z0 = v[2];
+
+    for (let i = 0; i < v.length; i += 3) {
+      v[i + 0] = x0;
+      v[i + 1] = y0;   // ✅ PRIDĖTA (užrakina vertikalę)
+      v[i + 2] = z0;
+    }
+  }
+
+
+  return clip;
+}
+
+
+function rotateHipsQuatInClip(clip, eulerFix) {
+  const qFix = new THREE.Quaternion().setFromEuler(eulerFix);
+
+  for (const t of clip.tracks) {
+    const n = t.name.toLowerCase();
+    if (!n.endsWith('.quaternion')) continue;
+
+    const looksLikeHips =
+      n.includes('hips') || n.includes('mixamorig:hips') || n.includes('mixamorighips');
+
+    if (!looksLikeHips) continue;
+
+    const v = t.values;
+    const q = new THREE.Quaternion();
+
+    for (let i = 0; i < v.length; i += 4) {
+      q.set(v[i], v[i+1], v[i+2], v[i+3]);
+      q.premultiply(qFix);
+      v[i]   = q.x;
+      v[i+1] = q.y;
+      v[i+2] = q.z;
+      v[i+3] = q.w;
+    }
+  }
+  return clip;
+}
+
+
+// ✅ ČIA yra TIKRAS loadAnim
+function loadAnim(name, url, useFBX = false) {
+  if (useFBX) {
+    const loader = new FBXLoader();
+    loader.load(
+      url,
+      (fbx) => {
+        if (!mixer) return;
+        if (fbx.animations && fbx.animations.length > 0) {
+          let clip = fbx.animations[0];
+          if (name === 'breakdance') {
+  clip = stripRootMotionKeepHipsY(clip);
+
+  // ✅ vienas fixas, jokio pivot, jokio per-frame
+  clip = rotateHipsQuatInClip(clip, new THREE.Euler(-Math.PI / 2, 0, 0));
+}
+
+
+          actions[name] = mixer.clipAction(clip);
+        }
+      },
+      undefined,
+      (err) => console.error('Klaida įkeliant FBX animaciją', url, err)
+    );
+  } else {
+    const loader = new GLTFLoader();
+    loader.load(
+      url,
+      (gltf) => {
+        if (!mixer) return;
+        if (gltf.animations && gltf.animations.length > 0) {
+          const clip = gltf.animations[0];
+          actions[name] = mixer.clipAction(clip);
+        }
+      },
+      undefined,
+      (err) => console.error('Klaida įkeliant GLB animaciją', url, err)
+    );
+  }
+}
+
+
+    function fadeToAction(name, duration = 0.15, loopOnce = false) {
+      const action = actions[name];
+      if (!action || activeAction === action) return;
+      const prev = activeAction;
+      activeAction = action;
+
+      if (loopOnce) {
+        action.setLoop(THREE.LoopOnce);
+        action.clampWhenFinished = true;
+      } else {
+        action.setLoop(THREE.LoopRepeat);
+        action.clampWhenFinished = false;
+      }
+
+      action.reset().fadeIn(duration).play();
+      if (prev) prev.fadeOut(duration);
+      
+    }
+ 
+ function startBreakdance() {
+  clearAutoKissTimers();
+
+  if (!actions.breakdance || !ninja) return;
+  if (breakdanceDone) return;
+  if (musicOverride === 'breakdance') return;
+
+  const inPrincessZone = (getZone() === 'princess');
+  if (!inPrincessZone) {
+    showMinigameMessage('💡 Breakdance tik prie princesės bokšte.');
+    return;
+  }
+
+  keys.forward = keys.back = keys.left = keys.right = false;
+  controlsLocked = true;
+  velY = 0;
+  onGround = true;
+
+  if (princessScene === 'afterMinigames') {
+    hideNpcSpeech();
+    princessScene = null;
+    princessFrozen = false;
+  }
+
+  musicOverride = 'breakdance';
+
+  if (currentMusic && currentMusic !== music.breakdance) {
+    try { currentMusic.pause(); } catch(e) {}
+  }
+
+  try {
+    music.breakdance.pause();
+    music.breakdance.currentTime = 0;
+  } catch(e) {}
+
+  music.breakdance.volume = 0.60;
+  music.breakdance.play().catch(()=>{});
+  currentMusic = music.breakdance;
+
+  const bd = actions.breakdance;
+  bd.setLoop(THREE.LoopRepeat);
+  bd.clampWhenFinished = false;
+
+  fadeToAction('breakdance', 0.15, false);
+
+  breakdanceBaseY = ninja.position.y;
+  ninja.position.y = breakdanceBaseY + BREAKDANCE_RAISE_Y;
+
+  const finish = () => {
+    musicOverride = null;
+
+    if (actions.breakdance) {
+      actions.breakdance.fadeOut(0.12);
+      setTimeout(() => {
+        try { actions.breakdance.stop(); } catch(e) {}
+      }, 140);
+    }
+
+    fadeToAction('idle', 0.15);
+    ninja.position.y = breakdanceBaseY;
+
+    currentMusic = null;
+    updateZoneMusic();
+
+    controlsLocked = true;
+    breakdanceDone = true;
+
+    princessScene = 'afterBreakdance';
+    princessSceneStarted = false;
+    princessFrozen = false;
+    princessApproachAllowed = true;
+
+    princessSceneText =
+      'Tu tai padarei.\n\n' +
+      'Ačiū, kad atėjai iki pat galo.\n' +
+      'Aš tikrai didžiuojuosi tavimi. ❤️\n\n' +
+      'Myliu tave.\nLabai. ❤️';
+  };
+
+  music.breakdance.onended = finish;
+}
+
+
+
+    // ---------- INPUT ----------
+    function onKeyChange(event, isDown) {
+      const key = event.key;
+// jei atidarytas laiškas – užblokuojam visus valdymus (w/a/s/d/e/p/f/b ir t.t.)
+if (letterOpen && !npcWaitingForAnswer) return;
+
+
+      if (key === 'w' || key === 'W' || key === 'ArrowUp')    keys.forward = isDown;
+      if (key === 's' || key === 'S' || key === 'ArrowDown')  keys.back    = isDown;
+      if (key === 'a' || key === 'A' || key === 'ArrowLeft')  keys.left    = isDown;
+      if (key === 'd' || key === 'D' || key === 'ArrowRight') keys.right   = isDown;
+      if (key === 'Shift') keys.shift = isDown;
+
+      // šuolis
+      if (key === ' ' && isDown) {
+        if (onGround && !isJumping && actions.jump) {
+          isJumping = true;
+          velY = JUMP_FORCE;
+          fadeToAction('jump', 0.1, true);
+        }
+      }
+
+      // vartai
+      if ((key === 'e' || key === 'E') && isDown) {
+        tryOpenGate();
+      }
+
+      // katinas
+      if ((key === 'p' || key === 'P') && isDown) {
+        tryCharmCat();
+      }
+
+      // mini-games F
+      if ((key === 'f' || key === 'F') && isDown) {
+        tryStartMinigame();
+      }
+// BREAKDANCE — paspaudi B
+if ((key === 'b' || key === 'B') && isDown) {
+  startBreakdance();
+}
+// 🧪 DEV SKIP: T -> į princesės bokštą po mini-games
+if ((key === 't' || key === 'T') && isDown) {
+  // pažymim mini-games kaip baigtus (kad logika nelauktų durų)
+  miniGamesCompleted[0] = true;
+  miniGamesCompleted[1] = true;
+  miniGamesCompleted[2] = true;
+
+  // kad rodytųsi princesė ir leistų sceną
+  princessApproachAllowed = true;
+  princessFrozen = false;
+  princessScene = 'afterMinigames';
+  princessSceneStarted = false;
+  princessSceneText =
+    'Pagaliau… tu čia. ❤️\n\n' +
+    'Bet dar vienas dalykas.\n' +
+    'Jei nori mano širdies — parodyk man savo geriausią breakdance.\n\n' +
+    'Spausk B. 😄';
+
+  teleportToPrincessTower();
+}
+
+// 💋 KISS — paspaudi M
+if ((key === 'm' || key === 'M') && isDown) {
+  if (kissStarted || kissApproach) return;
+
+  if (!showPressMHint) {
+    showMinigameMessage('Dar negalima 🙂');
+    return;
+  }
+
+  // jei animacijos dar kraunasi — palaukiam (paspaudimas išsaugomas)
+  if (!kissReady) {
+    pendingKissPress = true;
+    showMinigameMessage('⏳ Kraunu kiss animaciją...');
+    minigameMessageTimer = 2.0;
+    return;
+  }
+
+  startKissApproach();
+}
+
+
+
+
+    }
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // ---------- MAIN LOOP ----------
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+
+      if (mixer) mixer.update(delta);
+
+      for (const info of npcInfos) {
+        if (info.mixer) info.mixer.update(delta);
+      }
+
+      if (princessMixer) princessMixer.update(delta);
+
+
+      if (ninja) {
+        updateMovement(delta);
+        updateAnimState();
+        updateCamera();
+        updateBridgeWobble();
+        checkLavaDeath();
+        checkDziugasQuest();
+        updateDziugasFollow(delta);
+        updateCatFollow(delta);
+        updateNPCLogic(delta);
+        checkCastleWin();
+        updateCastleGate(delta);
+        checkDoorMinigames();
+        updateMinigameTimer(delta);
+        drawMinimap();
+                checkAfterBridgeLetter();
+                updateZoneMusic(); 
+                updatePrincessBehavior(delta);
+updateKissApproach(delta);if (kissApproach || kissStarted) {
+  kissCamTime += delta;
+} else {
+  kissCamTime = 0;
+}
+
+// ✅ FIX: per kiss animaciją ninja nebesulenda į žemę
+if (kissStarted) {
+  snapNinjaFeetToGround(0.06); // 0.04–0.10 pasireguliuok
+}
+
+
+
+      }
+
+      if (minigameMessageTimer > 0) {
+        minigameMessageTimer -= delta;
+        if (minigameMessageTimer <= 0 && minigameMessage) {
+          minigameMessage.style.display = 'none';
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // ---------- judėjimas / kolizija herojaus ----------
+    function isPositionBlocked(x, z) {
+      // medžiai
+      const rTreeSq = HERO_RADIUS * HERO_RADIUS;
+      for (const tree of treesData) {
+        const dx = x - tree.x;
+        const dz = z - tree.z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < rTreeSq) return true;
+      }
+
+      // Džiugas
+      if (dziugas) {
+        let dx = x - dziugas.position.x;
+        let dz = z - dziugas.position.z;
+        const rDonkey = HERO_RADIUS + 0.2;
+        const rDonkeySq = rDonkey * rDonkey;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < rDonkeySq) return true;
+      }
+
+      // Katinas
+      if (cat) {
+        let dx = x - cat.position.x;
+        let dz = z - cat.position.z;
+        const rCat = HERO_RADIUS + 0.1;
+        const rCatSq = rCat * rCat;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < rCatSq) return true;
+      }
+
+      // pilies sienos ir centrinis bokštas
+      if (isBlockedByCastleWalls(x, z)) return true;
+  // bokšto (mini games kambario) sienos
+  {
+    const cx = TOWER_ROOM_CENTER.x;
+    const cz = TOWER_ROOM_CENTER.y;
+    const r  = TOWER_ROOM_RADIUS;
+    const wallThickness = 0.8; // toks pats kaip createTowerRoom
+    const pad = wallThickness + HERO_RADIUS * 0.6;
+
+    const frontZ = cz + r;
+    const backZ  = cz - r;
+    const leftX  = cx - r;
+    const rightX = cx + r;
+
+    // priekinė siena
+    if (Math.abs(z - frontZ) < pad && x > leftX && x < rightX) {
+      return true;
+    }
+    // galinė siena
+    if (Math.abs(z - backZ) < pad && x > leftX && x < rightX) {
+      return true;
+    }
+    // kairė siena
+    if (Math.abs(x - leftX) < pad && z > backZ && z < frontZ) {
+      return true;
+    }
+    // dešinė siena
+    if (Math.abs(x - rightX) < pad && z > backZ && z < frontZ) {
+      return true;
+    }
+  }
+  // bokšto mini-games DURŲ kolizija
+  if (doorObjects && doorObjects.length) {
+    const doorHalfW = 1.0;   // durų plotis /2 (BoxGeometry 2)
+    const doorHalfD = 0.25;  // durų storis /2 (BoxGeometry 0.4)
+    const extraPad  = HERO_RADIUS * 0.5;
+
+    for (let i = 0; i < doorObjects.length; i++) {
+      const d = doorObjects[i];
+      const dx = x - d.position.x;
+      const dz = z - d.position.z;
+
+      if (Math.abs(dx) < doorHalfW + extraPad &&
+          Math.abs(dz) < doorHalfD + extraPad) {
+        return true; // atsitrenki į duris
+      }
+    }
+  }
+
+  return false;
+}
+
+    // --- PRIDĖTA: NPC kolizijos helperis (buvo kviečiamas, bet neaprašytas) ---
+    function npcIsPositionBlocked(x, z) { // <-- PRIDĖTA
+      // NPC tiesiog naudoja tas pačias pilies sienų kolizijas
+      return isBlockedByCastleWalls(x, z);
+    }
+    // ---------------------------------------------------------------------------
+function getGroundYAt(x, z) {
+  // pilies akmens platforma yra +0.14
+  const dx = x - goalPos.x;
+  const dz = z - goalPos.z;
+  const r = (CASTLE_RADIUS - 1.0);
+  if (dx*dx + dz*dz <= r*r) return 0.14;
+
+  return 0; // visur kitur (miškas/tiltas) ground = 0
+}
+
+function updateMovement(delta) {
+  if (!ninja) return;
+
+  // ✅ groundY visada apibrėžtas
+  let groundY = 0;
+
+  // pilies akmeninė platforma yra 0.14 aukštyje
+  {
+    const dx = ninja.position.x - goalPos.x;
+    const dz = ninja.position.z - goalPos.z;
+    const r = (CASTLE_RADIUS - 1.0);
+    if (dx*dx + dz*dz <= r*r) groundY = 0.14;
+  }
+
+  // bokšto kambarys ir princesės bokštas – ant 0 (nes floor tavo yra y=0)
+  // (jei kada nors jų floor pakelsi, čia galėsi pakeist)
+
+  // jei control lock (laiškas / cutscene) – neleidžiam vaikščiot, tik gravitacija
+  if (controlsLocked) {
+    velY -= GRAVITY * delta;
+    ninja.position.y = Math.max(groundY, ninja.position.y + velY * delta);
+
+    if (ninja.position.y <= groundY) {
+      ninja.position.y = groundY;
+      velY = 0;
+      onGround = true;
+      isJumping = false;
+    }
+
+  // breakdance laikom pakeltą + snapinam pėdas, kad nelįstų į žemę
+if (musicOverride === 'breakdance') {
+  velY = 0;          // ✅ neleidžiam gravitacijai kauptis
+  onGround = true;
+
+  ninja.position.y = breakdanceBaseY + BREAKDANCE_RAISE_Y;
+  snapNinjaFeetToGround(0.12); // ✅ didesnis clearance
+}
+return;
+
+  }
+
+  const baseSpeed = 6;
+  const runMult = 1.6;
+  const rotSpeed = 10;
+
+  let mx = 0, mz = 0;
+  if (keys.forward) mz -= 1;
+  if (keys.back)    mz += 1;
+  if (keys.left)    mx -= 1;
+  if (keys.right)   mx += 1;
+
+  const dir = new THREE.Vector3(mx, 0, mz);
+  const isMoving = dir.lengthSq() > 0;
+
+  let speed = baseSpeed;
+  if (keys.shift && isMoving && actions.run) speed *= runMult;
+
+  let newPos = ninja.position.clone();
+
+  if (isMoving) {
+    dir.normalize();
+
+    const targetAngle = Math.atan2(dir.x, dir.z);
+    let current = ninja.rotation.y;
+    let diff = targetAngle - current;
+    diff = (diff + Math.PI) % (Math.PI * 2) - Math.PI;
+    const maxStep = rotSpeed * delta;
+    if (diff > maxStep) diff = maxStep;
+    if (diff < -maxStep) diff = -maxStep;
+    ninja.rotation.y = current + diff;
+
+    const move = dir.clone().multiplyScalar(speed * delta);
+
+    let candidate = newPos.clone();
+    candidate.x += move.x;
+    if (!isPositionBlocked(candidate.x, candidate.z)) newPos.x = candidate.x;
+
+    candidate = newPos.clone();
+    candidate.z += move.z;
+    if (!isPositionBlocked(candidate.x, candidate.z)) newPos.z = candidate.z;
+  }
+
+  velY -= GRAVITY * delta;
+  newPos.y += velY * delta;
+
+  if (newPos.y <= groundY) {
+    newPos.y = groundY;
+    velY = 0;
+    if (!onGround) { onGround = true; isJumping = false; }
+  } else {
+    onGround = false;
+  }
+
+  ninja.position.copy(newPos);
+}
+
+
+
+function updateAnimState() {
+  if (!activeAction) return;
+
+  // ✅ jei vyksta breakdance – niekas nekeičia
+  if (musicOverride === 'breakdance') return;
+
+  // ✅ jei vyksta kiss priėjimas ar kiss – NIEKAS nekeičia animacijų
+  if (kissApproach || kissStarted) return;
+
+  // ✅ jei control lock (laiškai/cutscene) – irgi nekeičiam animacijų čia
+  if (controlsLocked) return;
+
+  if (isJumping) {
+    if (onGround) {
+      isJumping = false;
+    } else {
+      return;
+    }
+  }
+
+  const isMoving = keys.forward || keys.back || keys.left || keys.right;
+
+  if (isMoving) {
+    if (keys.shift && actions.run) fadeToAction('run');
+    else if (actions.walk) fadeToAction('walk');
+  } else if (actions.idle) {
+    fadeToAction('idle');
+  }
+}
+
+
+    // kamera
+    function updateCamera() {
+      // 👑 Speciali kamera princesės bokšte
+if (ninja && princess && isHeroInPrincessTower()) {
+    // 💋 KISS kamera (fiksuota, kad NIEKADA neišeitų už sienos)
+if (kissApproach || kissStarted) {
+
+  // 1) stabilus midpoint (be jitter)
+  const rawMid = new THREE.Vector3()
+    .copy(ninja.position)
+    .add(princess.position)
+    .multiplyScalar(0.5);
+
+  if (!kissCam.initialized) {
+    kissCam.mid.copy(rawMid);
+    kissCam.pos.copy(camera.position);
+    kissCam.initialized = true;
+  } else {
+    // 🔑 labai lėtas mid sekimas → dingsta trūkčiojimas
+    kissCam.mid.lerp(rawMid, 0.04);
+  }
+
+  // 2) orbit parametrai
+  const R = 4.6;
+  const H = 2.9;
+  const speed = 0.18; // lėčiau = romantiškiau + smooth
+
+  const a = kissCamTime * speed + Math.PI * 0.35;
+
+  const desiredPos = new THREE.Vector3(
+    kissCam.mid.x + Math.cos(a) * R,
+    H,
+    kissCam.mid.z + Math.sin(a) * R
+  );
+
+  // 3) švelnus kameros judėjimas (be double-lerp)
+  kissCam.pos.lerp(desiredPos, 0.06);
+  camera.position.copy(kissCam.pos);
+
+  camera.lookAt(
+    kissCam.mid.clone().add(new THREE.Vector3(0, 1.55, 0))
+  );
+
+  return;
+}
+
+
+
+
+  // 1) Kol princesė EINA maršrutu — kamera iš viršaus, centre
+  const princessWalking =
+    (princessRoutePhase === 'edgeToCenter' ||
+     princessRoutePhase === 'centerToEdge' ||
+     princessRoutePhase === 'edgeToNinja');
+
+  if (princessWalking) {
+    const center = new THREE.Vector3(PRINCESS_TOWER_CENTER.x, 0, PRINCESS_TOWER_CENTER.y);
+
+    const desiredPos = new THREE.Vector3(center.x, 16, center.z + 0.01); // +0.01 kad lookAt neglitchintų
+    camera.position.lerp(desiredPos, 0.08);
+
+    const look = princess.position.clone().add(new THREE.Vector3(0, 1.6, 0));
+    camera.lookAt(look);
+    return;
+  }
+
+  // 2) Kai princesė PRIE NINJOS (frozen/done) — kamera iš šono
+  if (princessFrozen || princessRoutePhase === 'done') {
+    const mid = new THREE.Vector3()
+      .copy(ninja.position)
+      .add(princess.position)
+      .multiplyScalar(0.5);
+
+    // šoninė kryptis (90° nuo linijos tarp jų)
+    const dir = new THREE.Vector3().subVectors(princess.position, ninja.position);
+    dir.y = 0;
+    dir.normalize();
+    const side = new THREE.Vector3(-dir.z, 0, dir.x); // pasukta 90°
+
+    const desiredPos = mid.clone()
+      .addScaledVector(side, 6.0)
+      .add(new THREE.Vector3(0, 4.5, 0));
+
+    camera.position.lerp(desiredPos, 0.10);
+    camera.lookAt(mid.clone().add(new THREE.Vector3(0, 1.6, 0)));
+    return;
+  }
+}
+
+      if (!ninja) return;
+
+      const dx = ninja.position.x - goalPos.x;
+      const dz = ninja.position.z - goalPos.z;
+      const distSq = dx * dx + dz * dz;
+
+      let radius = 10;
+      let yOffset = 4;
+
+      if (distSq < 40 * 40) {
+        radius = 7;
+        yOffset = 5;
+      }
+
+      if (
+        Math.abs(dx) < CASTLE_YARD_HALF_X &&
+        Math.abs(dz) < CASTLE_YARD_HALF_Z
+      ) {
+        radius = 5.5;
+        yOffset = 5;
+      }
+
+      const vertical = THREE.MathUtils.clamp(camPitch, -0.4, 0.9);
+
+      const planarRadius = radius * Math.cos(vertical);
+      const height = yOffset + radius * Math.sin(vertical);
+
+      const offsetX = Math.sin(camYawOffset) * planarRadius;
+      const offsetZ = Math.cos(camYawOffset) * planarRadius;
+
+      const desiredPos = new THREE.Vector3(
+        ninja.position.x + offsetX,
+        ninja.position.y + height,
+        ninja.position.z + offsetZ
+      );
+
+      camera.position.lerp(desiredPos, 0.15);
+      const lookTarget = ninja.position.clone().add(new THREE.Vector3(0, 1.8, 0));
+      camera.lookAt(lookTarget);
+    }
+
+    // ---------- LAVA ----------
+  function isOnSafeGround(pos) {
+  // herojaus Y nedomina – svarbi tik XY projekcija
+  const x = pos.x;
+  const z = pos.z;
+
+  // 1) MIŠKO SALA (startas) – visas ratas
+  {
+    const dx = x - FOREST_CENTER.x;
+    const dz = z - FOREST_CENTER.y;
+    const r = FOREST_RADIUS - 1.0;
+    if (dx * dx + dz * dz <= r * r) return true;
+  }
+
+  // 2) PILIES SALA – visas akmenų ratas saugus
+  {
+    const dx = x - goalPos.x;
+    const dz = z - goalPos.z;
+    const r = CASTLE_RADIUS - 1.0;
+    if (dx * dx + dz * dz <= r * r) return true;
+  }
+
+  // 3) BOKŠTO KAMBARYS (su trim durim) – visas ratas
+  {
+    const dx = x - TOWER_ROOM_CENTER.x;
+    const dz = z - TOWER_ROOM_CENTER.y;
+    const r = TOWER_ROOM_RADIUS - 1.0;
+    if (dx * dx + dz * dz <= r * r) return true;
+  }
+
+  // 4) PRINCESĖS BOKŠTAS – visas ratas
+  {
+    const dx = x - PRINCESS_TOWER_CENTER.x;
+    const dz = z - PRINCESS_TOWER_CENTER.y;
+    const r = PRINCESS_TOWER_RADIUS - 1.0;
+    if (dx * dx + dz * dz <= r * r) return true;
+  }
+
+  // 5) TILTAS – trys stačiakampiai segmentai (tik lentos)
+  const onSegment1 =
+    z >= BRIDGE_SEG1_Z - BRIDGE_SEG_DEPTH / 2 &&
+    z <= BRIDGE_SEG1_Z + BRIDGE_SEG_DEPTH / 2;
+  const onSegment2 =
+    z >= BRIDGE_SEG2_Z - BRIDGE_SEG_DEPTH / 2 &&
+    z <= BRIDGE_SEG2_Z + BRIDGE_SEG_DEPTH / 2;
+  const onSegment3 =
+    z >= BRIDGE_SEG3_Z - BRIDGE_SEG_DEPTH / 2 &&
+    z <= BRIDGE_SEG3_Z + BRIDGE_SEG_DEPTH / 2;
+
+  const onAnySegment = onSegment1 || onSegment2 || onSegment3;
+  const onBridgeX = Math.abs(x - BRIDGE_X) <= BRIDGE_SAFE_HALF_WIDTH;
+
+  if (onAnySegment && onBridgeX) return true;
+
+  // 6) VISUR KITUR – LAVA, MIRŠTI
+  return false;
+}
+
+
+
+ function respawnHero() {
+  if (isRespawning || !ninja) return;
+  isRespawning = true;
+deathLetterShown = false;
+
+  // IŠKART perkeliam herojų atgal į mišką
+  ninja.position.set(0, 0, 0);
+  
+  velY = 0;
+  console.log('💀 Nukritai į lavą – respawn miške.');
+
+  // pabandom paleisti mirties garsą
+  try {
+    audio.deathSound.currentTime = 0;
+    audio.deathSound.play();
+  } catch (e) {}
+
+  // kai baigiasi death sound – paleidžiam kiss ir parodom laišką
+  audio.deathSound.onended = () => {
+  if (deathLetterShown) return;
+  deathLetterShown = true;
+
+  try {
+    audio.respawnKiss.currentTime = 0;
+    audio.respawnKiss.play();
+  } catch (e) {}
+
+  showLetter(
+    'Gerai, grįžk pas mane.\n\nDuodu tau bučinį — ir dar vieną šansą. 😘',
+    'Bandysiu dar kartą!'
+  );
+
+  isRespawning = false;
+};
+
+}
+
+
+
+
+
+function checkLavaDeath() {
+  if (!ninja) return;
+  const p = ninja.position;
+
+  // Mirštam tik tada, kai:
+  // 1) nesame saugioj zonoje (lava),
+  // 2) esame pakankamai žemai (t. y. praktiškai ant žemės / įkritę)
+  if (!isOnSafeGround(p) && p.y <= 0.05) {
+    respawnHero();
+  }
+}
+
+
+
+
+    function moveNpcTowardsHero(info, delta) {
+      if (!info || !info.mesh || !ninja) return false;
+      const mesh = info.mesh;
+
+      const dx = ninja.position.x - mesh.position.x;
+      const dz = ninja.position.z - mesh.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      const stopDist = 2.0;
+
+      if (dist < stopDist) {
+        mesh.rotation.y = Math.atan2(dx, dz);
+        return true;
+      }
+
+      const speed = 6.0;
+      const step = speed * delta;
+      const dirX = dx / dist;
+      const dirZ = dz / dist;
+
+      // kitos NPC – paprasta kolizija
+      if (info.name !== 'Lara') {
+        const newX = mesh.position.x + dirX * step;
+        const newZ = mesh.position.z + dirZ * step;
+
+        if (!npcIsPositionBlocked(newX, newZ)) {
+          mesh.position.x = newX;
+          mesh.position.z = newZ;
+        }
+
+        mesh.rotation.y = Math.atan2(dirX, dirZ);
+        return false;
+      }
+
+      // ---- LARA – slide algoritmas ----
+      const fullX = mesh.position.x + dirX * step;
+      const fullZ = mesh.position.z + dirZ * step;
+
+      const onlyX = mesh.position.x + dirX * step;
+      const onlyZ = mesh.position.z;
+
+      const altX = mesh.position.x;
+      const altZ = mesh.position.z + dirZ * step;
+
+      let moved = false;
+
+      if (!npcIsPositionBlocked(fullX, fullZ)) {
+        mesh.position.x = fullX;
+        mesh.position.z = fullZ;
+        moved = true;
+      } else {
+        if (!npcIsPositionBlocked(onlyX, onlyZ)) {
+          mesh.position.x = onlyX;
+          moved = true;
+        }
+        if (!npcIsPositionBlocked(altX, altZ)) {
+          mesh.position.z = altZ;
+          moved = true;
+        }
+      }
+
+      if (!moved) return true; // STOP, kad nespamintų klaidų
+
+      mesh.rotation.y = Math.atan2(dirX, dirZ);
+      return false;
+    }
+
+    function moveNpcBackToStart(info, delta) {
+      if (!info || !info.mesh || !info.startPos) return false;
+
+      const mesh = info.mesh;
+      const target = info.startPos;
+
+      const dx = target.x - mesh.position.x;
+      const dz = target.z - mesh.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+
+      if (dist < 0.3) {
+        mesh.position.copy(target);
+        return true;
+      }
+
+      const speed = 6.0;
+      const step = speed * delta;
+      const dirX = dx / dist;
+      const dirZ = dz / dist;
+
+      // paprastos NPC
+      if (info.name !== 'Lara') {
+        const newX = mesh.position.x + dirX * step;
+        const newZ = mesh.position.z + dirZ * step;
+
+        if (!npcIsPositionBlocked(newX, newZ)) {
+          mesh.position.x = newX;
+          mesh.position.z = newZ;
+        }
+
+        mesh.rotation.y = Math.atan2(dirX, dirZ);
+        return false;
+      }
+
+      // ---- LARA slide atgal ----
+      const fullX = mesh.position.x + dirX * step;
+      const fullZ = mesh.position.z + dirZ * step;
+
+      const onlyX = mesh.position.x + dirX * step;
+      const onlyZ = mesh.position.z;
+
+      const altX = mesh.position.x;
+      const altZ = mesh.position.z + dirZ * step;
+
+      let moved = false;
+
+      if (!npcIsPositionBlocked(fullX, fullZ)) {
+        mesh.position.x = fullX;
+        mesh.position.z = fullZ;
+        moved = true;
+      } else {
+        if (!npcIsPositionBlocked(onlyX, onlyZ)) {
+          mesh.position.x = onlyX;
+          moved = true;
+        }
+        if (!npcIsPositionBlocked(altX, altZ)) {
+          mesh.position.z = altZ;
+          moved = true;
+        }
+      }
+
+      if (!moved) return true; // STOP infinite loop
+
+      mesh.rotation.y = Math.atan2(dirX, dirZ);
+      return false;
+    }
+
+    // dialogo UI
+    function showDialog(questionObj) {
+      closeLetter();
+      if (!dialogContainer || !dialogTextEl || !dialogOptionsEl) return;
+      dialogTextEl.textContent = questionObj.text;
+
+      const btns = dialogOptionsEl.querySelectorAll('button');
+      const labels = ['A', 'B', 'C'];
+      btns.forEach((btn, i) => {
+        const label = labels[i] || '?';
+        btn.dataset.choice = label;
+        if (questionObj.options && questionObj.options[i]) {
+          btn.textContent = questionObj.options[i];
+        } else {
+          btn.textContent = label;
+        }
+      });
+
+      dialogContainer.style.display = 'block';
+    }
+
+    function hideDialog() {
+      if (dialogContainer) dialogContainer.style.display = 'none';
+    }
+
+  function handleDialogChoice(choice) {
+  if (!npcWaitingForAnswer) return;
+
+  // paimam šio NPC klausimą
+  const q = npcQuestions[npcCurrentIndex] || npcQuestions[0];
+
+  // jei yra teisingas atsakymas ir pasirinkta ne ta raidė – lieka ta pati mergina
+  if (q && q.correct && choice !== q.correct) {
+    if (dialogTextEl) {
+      dialogTextEl.textContent = '❌ Ne, bandyk dar kartą.';
+    }
+    // NEuždarom dialogo ir NEmetam NPC į "leaving" – tegul žaidėjas bando dar
+    return;
+  }
+
+  // teisingas atsakymas
+  npcWaitingForAnswer = false;
+  hideDialog();
+
+   const info = npcInfos[npcCurrentIndex];
+  if (info) {
+    // nutildom balsą kai pradeda nueidinėt
+    stopNpcVoice(info);
+
+    info.state = 'leaving';
+    if (info.talkAction) info.talkAction.stop();
+    if (info.idleAction) info.idleAction.play();
+  }
+
+
+  npcDialogTimer = 0.5;
+}
+
+
+    // Teleportai
+ function teleportInsideTower() {
+  ninja.position.set(TOWER_ROOM_CENTER.x, 0, TOWER_ROOM_CENTER.y + 5);
+  snapNinjaFeetToGround(0.04);
+  camYawOffset = Math.PI;
+  console.log('✨ Teleportas į atskirą bokšto kambarį su trim durim.');
+
+  if (!letterTowerShown) {
+    letterTowerShown = true;
+    openLetter({
+      title: "Princesės laiškas",
+      body:
+`Kiekvienas žingsnis…
+ir tu vis arčiau manęs. ✨
+
+Už šitų durų bus trys bandymai.
+Įveik juos visus —
+ir mes pagaliau susitiksime.
+
+Aš laukiu čia.
+— Princesė`
+    });
+  }
+}
+
+// ✅ atskira funkcija (NE viduje teleportInsideTower)
+function teleportToPrincessTower() {
+  clearAutoKissTimers();
+
+  // HEROJUS
+  ninja.position.set(
+    PRINCESS_TOWER_CENTER.x,
+    0,
+    PRINCESS_TOWER_CENTER.y + (PRINCESS_TOWER_RADIUS - 3.5)
+  );
+  snapNinjaFeetToGround(0.04);
+  camYawOffset = Math.PI;
+
+  // PRINCESĖ
+  if (princess) {
+    princess.visible = true;
+    princess.position.set(
+      PRINCESS_TOWER_CENTER.x,
+      0,
+      PRINCESS_TOWER_CENTER.y - (PRINCESS_TOWER_RADIUS - 2.5)
+    );
+    princess.rotation.y = 0;
+  }
+
+  // ✅ fiksuojam jos start/krašto poziciją
+  princessStartPos = princess.position.clone();
+  princessEdgePos = princess.position.clone();
+
+  // ✅ bokšto centras
+  princessCenterPos = new THREE.Vector3(PRINCESS_TOWER_CENTER.x, 0, PRINCESS_TOWER_CENTER.y);
+
+  // ✅ stop prie ninjos (iš princesės pusės)
+  {
+    const vx = princessEdgePos.x - ninja.position.x;
+    const vz = princessEdgePos.z - ninja.position.z;
+    const len = Math.sqrt(vx*vx + vz*vz) || 1;
+    const stopDist = 2.4;
+
+    princessStopPos = new THREE.Vector3(
+      ninja.position.x + (vx/len) * stopDist,
+      0,
+      ninja.position.z + (vz/len) * stopDist
+    );
+  }
+
+  princessRoutePhase = 'edgeToCenter';
+  princessFrozen = false;
+  princessApproachAllowed = true;
+
+  // muzika
+  unlockAudioOnce();
+  musicOverride = null;
+  lastZone = null;
+  playMusicCrossfade(music.princess, 0.40, 0.15);
+
+  controlsLocked = true;
+  hideNpcSpeech();
+
+  princessScene = 'afterMinigames';
+  princessSceneStarted = false;
+  princessSceneText =
+    'Pagaliau… tu čia. ❤️\n\n' +
+    'Bet dar vienas dalykas.\n' +
+    'Jei nori mano širdies — parodyk man savo geriausią breakdance.\n\n' +
+    'Spausk B. 😄';
+}
+
+
+    // helperis
+  function isHeroInPrincessTower() {
+  if (!ninja) return false;
+  const dx = ninja.position.x - PRINCESS_TOWER_CENTER.x;
+  const dz = ninja.position.z - PRINCESS_TOWER_CENTER.y;
+  return dx*dx + dz*dz < (PRINCESS_TOWER_RADIUS - 1.5) ** 2;
+}
+
+
+    function isHeroInCastleYard() {
+      const dx = ninja.position.x - goalPos.x;
+      const dz = ninja.position.z - goalPos.z;
+      return (
+        Math.abs(dx) < CASTLE_YARD_HALF_X - 2 &&
+        Math.abs(dz) < CASTLE_YARD_HALF_Z - 2
+      );
+    }
+    function checkAfterBridgeLetter() {
+      if (!ninja || letterBridgeShown) return;
+      if (!dziugasFound) return;
+
+      const dx = ninja.position.x - goalPos.x;
+      const dz = ninja.position.z - goalPos.z;
+      const distSq = dx * dx + dz * dz;
+
+      // kai patenka ant pilies salos
+      const r = (CASTLE_RADIUS + 2);
+      if (distSq < r * r) {
+        letterBridgeShown = true;
+        snapNinjaFeetToGround(0.04);
+
+        showLetter(
+          'Tu perėjai.🖤\n\nDabar susirask Vaivą — katinėlį prie vartų.\nPasikviesk ją su P.\nJūs būsit stipri komanda. 😼'
+,
+          'Einam pas Vaivą!'
+        );
+      }
+    }
+function getMinFootWorldY() {
+  if (!ninja || !footBones || footBones.length === 0) return null;
+
+  let minY = Infinity;
+  for (const b of footBones) {
+    b.getWorldPosition(_tmpV3);
+    if (_tmpV3.y < minY) minY = _tmpV3.y;
+  }
+  return isFinite(minY) ? minY : null;
+}
+function snapNinjaFeetToGround(clearance = 0.02) {
+  if (!ninja) return;
+
+  ninja.updateMatrixWorld(true);
+
+  const minFootY = getMinFootWorldY();
+  if (minFootY === null) return;
+
+  // ✅ atsižvelgiam į ZONĄ
+ const groundY = getGroundYAt(ninja.position.x, ninja.position.z);
+
+
+let delta = (groundY + clearance) - minFootY;
+
+// ✅ neleisk "nuleisti" herojaus į žemę (ypač breakdance pozoj)
+if (delta < 0) delta = 0;
+
+ninja.position.y += delta;
+}
+function clearAutoKissTimers() {
+  if (kissAutoTimer) {
+    clearTimeout(kissAutoTimer);
+    kissAutoTimer = null;
+  }
+  if (kissReadyPoll) {
+    clearInterval(kissReadyPoll);
+    kissReadyPoll = null;
+  }
+}
+
+function startKissWhenReady() {
+  if (kissStarted) return;
+
+  if (kissReady) {
+    startKissApproach();
+    return;
+  }
+
+  // jei kiss animacijos dar neįkeltos — palaukiam
+  if (kissReadyPoll) clearInterval(kissReadyPoll);
+  kissReadyPoll = setInterval(() => {
+    if (kissStarted) { clearInterval(kissReadyPoll); kissReadyPoll = null; return; }
+    if (kissReady) {
+      clearInterval(kissReadyPoll);
+      kissReadyPoll = null;
+      startKissApproach();
+    }
+  }, 200);
+}
+
+function scheduleAutoKiss(ms = 30000) {
+  clearAutoKissTimers();
+
+  showPressMHint = true;
+  showPressMMessage();
+
+  kissAutoTimer = setTimeout(() => {
+    startKissWhenReady();
+  }, ms);
+}
+
+
+
+    // ---- bendras pilies sienų tikrinimas visiems (herojus, npc, draugai) ----
+    function isBlockedByCastleWalls(x, z) {
+      const cx = goalPos.x;
+      const cz = goalPos.z;
+
+      const frontZ = cz + CASTLE_YARD_HALF_Z;
+      const backZ  = cz - CASTLE_YARD_HALF_Z;
+      const leftX  = cx - CASTLE_YARD_HALF_X;
+      const rightX = cx + CASTLE_YARD_HALF_X;
+
+      const pad = CASTLE_WALL_THICKNESS + HERO_RADIUS * 0.6;
+
+      // priekinė siena su vartais
+      if (Math.abs(z - frontZ) < pad && x > leftX && x < rightX) {
+        const gateHalf = CASTLE_GATE_WIDTH * 0.5;
+
+        // jei vartai UŽDARI – visa siena kieta
+        if (!castleGateOpen) {
+          return true;
+        }
+
+        // jei vartai ATVIRI – viduryje yra anga, šonai kieti
+        if (Math.abs(x - cx) > gateHalf - HERO_RADIUS * 0.2) {
+          return true;
+        }
+      }
+
+      // galinė siena
+      if (Math.abs(z - backZ) < pad && x > leftX && x < rightX) {
+        return true;
+      }
+
+      // kairė siena
+      if (Math.abs(x - leftX) < pad && z > backZ && z < frontZ) {
+        return true;
+      }
+
+      // dešinė siena
+      if (Math.abs(x - rightX) < pad && z > backZ && z < frontZ) {
+        return true;
+      }
+
+      // centrinis pilies bokštas – šiek tiek mažesnė kolizija (galima prieiti arčiau)
+      const towerPad = 3; // kuo DIDESNIS skaičius – tuo arčiau gali prieiti prie bokšto
+      if (
+        Math.abs(x - cx) < CASTLE_TOWER_HALF + HERO_RADIUS - towerPad &&
+        Math.abs(z - cz) < CASTLE_TOWER_HALF + HERO_RADIUS - towerPad
+      ) {
+        return true;
+      }
+
+      return false;
+    }
+
+    function isHeroInTowerRoom() {
+      const dx = ninja.position.x - TOWER_ROOM_CENTER.x;
+      const dz = ninja.position.z - TOWER_ROOM_CENTER.y;
+      return dx * dx + dz * dz < (TOWER_ROOM_RADIUS - 2) ** 2;
+    }
+
+    // NPC logika
+    function updateNPCLogic(delta) {
+      if (!ninja) return;
+      if (npcInfos.length === 0) return;
+      if (!isHeroInCastleYard()) return;
+      if (npcDialogStage === 4) return;
+
+      const totalNPC = npcInfos.length;
+
+      if (!npcDialogSequenceStarted) {
+        npcDialogSequenceStarted = true;
+        npcCurrentIndex = 0;
+        npcDialogStage = 1;
+        npcDialogTimer = 0;
+        console.log('👧 NPC dialogų seka prasidėjo.');
+      }
+
+      if (npcWaitingForAnswer) return;
+
+      if (npcDialogTimer > 0) {
+        npcDialogTimer -= delta;
+        if (npcDialogTimer > 0) return;
+      }
+
+      const info = npcInfos[npcCurrentIndex];
+      if (!info) return;
+
+      function playIdle(info) {
+        if (info.walkAction) info.walkAction.stop();
+        if (info.talkAction) info.talkAction.stop();
+        if (info.idleAction) info.idleAction.play();
+      }
+      function playWalk(info) {
+        if (info.idleAction) info.idleAction.stop();
+        if (info.talkAction) info.talkAction.stop();
+        if (info.walkAction) info.walkAction.play();
+      }
+      function playTalk(info) {
+        if (info.idleAction) info.idleAction.stop();
+        if (info.walkAction) info.walkAction.stop();
+        if (info.talkAction) info.talkAction.reset().play();
+      }
+
+      if (info.state === 'idle') {
+        info.state = 'movingToHero';
+        playWalk(info);
+      }
+
+      if (info.state === 'movingToHero') {
+  const reached = moveNpcTowardsHero(info, delta);
+  if (reached) {
+    info.state = 'talking';
+    playTalk(info);
+
+    // ---------- NPC KALBĖJIMO GARSAS ----------
+       // NPC kalbėjimo garsas
+    playNpcVoice(info);
+
+    // ------------------------------------------
+
+    const q = npcQuestions[npcCurrentIndex] || npcQuestions[0];
+    showDialog(q);
+    npcWaitingForAnswer = true;
+    return;
+
+  }
+
+      } else if (info.state === 'leaving') {
+  playWalk(info);
+  const back = moveNpcBackToStart(info, delta);
+  if (back) {
+    info.state = 'idle';
+    playIdle(info);
+    npcCurrentIndex++;
+    if (npcCurrentIndex >= totalNPC) {
+      npcDialogStage = 4;
+      teleportInsideTower(); // iškart po 3 klausimo
+    } else {
+      npcDialogTimer = 0.1; // buvo 1.0 – dabar kita mergina beveik iškart pradeda eiti
+    }
+  }
+  
+}
+    }
+        // ---------- DURYS / MINI-GAMES FUNKCIJOS ----------
+    function showMinigameMessage(text) {
+      if (!minigameMessage) return;
+      minigameMessage.textContent = text;
+      minigameMessage.style.display = 'block';
+      minigameMessageTimer = 3.0;
+    }
+
+    function hideAllMinigameOverlays() {
+      if (aimOverlay)   aimOverlay.style.display   = 'none';
+      if (quizOverlay)  quizOverlay.style.display  = 'none';
+      if (cardsOverlay) cardsOverlay.style.display = 'none';
+    }
+    function faceTargetY(obj, targetPos, extraYaw = 0) {
+  const dx = targetPos.x - obj.position.x;
+  const dz = targetPos.z - obj.position.z;
+  obj.rotation.y = Math.atan2(dx, dz) + extraYaw;
+}
+function clampToPrincessRoom(mesh, pad = 1.4) {
+  const cx = PRINCESS_TOWER_CENTER.x;
+  const cz = PRINCESS_TOWER_CENTER.y;
+  const dx = mesh.position.x - cx;
+  const dz = mesh.position.z - cz;
+
+  const r = PRINCESS_TOWER_RADIUS - pad;
+  const d2 = dx*dx + dz*dz;
+
+  if (d2 > r*r) {
+    const d = Math.sqrt(d2) || 1;
+    mesh.position.x = cx + (dx / d) * r;
+    mesh.position.z = cz + (dz / d) * r;
+  }
+}
+
+function updatePrincessBehavior(delta) {
+
+  // ✅ jei vyksta kiss priėjimas arba pats kiss – princesės AI NEBEKIŠA RANKŲ
+  if (kissApproach || kissStarted) return;
+
+  if (princess && ninja && isHeroInPrincessTower()) {
+    faceTargetY(ninja, princess.position);
+  }
+
+  if (!princess || !ninja) return;
+  if (!princessApproachAllowed) return;
+
+
+  if (princess && ninja && isHeroInPrincessTower()) {
+  faceTargetY(ninja, princess.position);
+}
+
+  if (!princess || !ninja) return;
+  if (!princessApproachAllowed) return;
+if (princessRoutePhase !== window._lastPhase) {
+  console.log('Princess phase:', princessRoutePhase, 'stop?', !!princessStopPos);
+  window._lastPhase = princessRoutePhase;
+}
+
+  const speed = 2.2;
+  const snapDist = 0.22;
+
+  // jei jau "frozen" – laikom prie ninjos
+  if (princessFrozen && princessStopPos) {
+    princess.position.x = princessStopPos.x;
+    princess.position.z = princessStopPos.z;
+    clampToPrincessRoom(princess, 1.4);
+    faceTargetY(princess, ninja.position);
+    return;
+  }
+
+  // jei neturim taškų – nieko nedarom
+  if (!princessStopPos || !princessEdgePos || !princessCenterPos) return;
+
+  // pasirenkam target pagal fazę
+  let target;
+  const doingRoute = (princessScene === 'afterMinigames');
+
+  if (doingRoute) {
+    if (princessRoutePhase === 'edgeToCenter') target = princessCenterPos;
+    else if (princessRoutePhase === 'centerToEdge') target = princessEdgePos;
+    else if (princessRoutePhase === 'edgeToNinja') target = princessStopPos;
+    else target = princessStopPos;
+  } else {
+    // po breakdance – tiesiai prie ninjos
+    princessRoutePhase = 'done';
+    target = princessStopPos;
+  }
+
+  // judėjimas
+  const tx = target.x - princess.position.x;
+  const tz = target.z - princess.position.z;
+  const tdist = Math.sqrt(tx*tx + tz*tz);
+
+  if (tdist <= snapDist) {
+    
+    // snap į target
+    princess.position.x = target.x;
+    princess.position.z = target.z;
+    clampToPrincessRoom(princess, 1.4);
+
+    // fazių perjungimas
+    if (doingRoute) {
+      if (princessRoutePhase === 'edgeToCenter') {
+        princessRoutePhase = 'centerToEdge';
+        return;
+      }
+      if (princessRoutePhase === 'centerToEdge') {
+        princessRoutePhase = 'edgeToNinja';
+        return;
+      }
+      if (princessRoutePhase === 'edgeToNinja') {
+        princessRoutePhase = 'done';
+      }
+    }
+
+    // atėjo prie ninjos → sustabdom + kalbam
+    princessActions.walk?.stop();
+   
+  if (princessActions.talk) {
+  princessActions.idle?.stop();
+
+  princessActions.talk.reset();
+  princessActions.talk.setLoop(THREE.LoopOnce, 1);   // ✅ vieną kartą
+  princessActions.talk.clampWhenFinished = true;     // ✅ sustoja paskutinėj pozoj
+  princessActions.talk.play();
+}
+
+    faceTargetY(princess, ninja.position);
+
+    princessFrozen = true;
+
+    if ((princessScene === 'afterMinigames' || princessScene === 'afterBreakdance') && !princessSceneStarted) {
+      princessSceneStarted = true;
+
+showNpcSpeech(princessSceneText, {
+  typeSpeed: 30,
+  autoHide: true,
+  onDone: () => {
+    // čia jau burbulas būna paslėptas (autoHide tai padarė)
+    controlsLocked = false;
+
+    // stabdom voice čia (teisingu momentu)
+    if (audio?.princessTalk) {
+      audio.princessTalk.pause();
+      audio.princessTalk.currentTime = 0;
+    }
+
+if (princessScene === 'afterBreakdance') {
+  showPressMHint = true;
+  showPressMMessage();      // parodo "Paspausk M ❤️"
+}
+
+
+  }
+});
+
+
+
+
+
+      playPrincessVoice(1.0);
+    }
+    return;
+  }
+
+  // eina link target
+  const step = Math.min(speed * delta, tdist);
+  princess.position.x += (tx / tdist) * step;
+  princess.position.z += (tz / tdist) * step;
+  clampToPrincessRoom(princess, 1.4);
+
+ // eina -> VISADA walk
+if (princessActions.walk) {
+  princessActions.idle?.stop();
+  princessActions.talk?.stop();
+  if (!princessActions.walk.isRunning()) princessActions.walk.reset().play();
+  princessActions.walk.timeScale = 1.0;
+}
+
+
+  princess.rotation.y = Math.atan2(tx, tz);
+}
+
+function startKissApproach() {
+  if (!kissReady || !ninja || !princess) return;
+  if (kissApproach || kissStarted) return; // ✅ saugiklis nuo loop
+
+  // jokių "paspausk M" dabar
+  showPressMHint = false;
+  pendingKissPress = false;
+  if (minigameMessage) minigameMessage.style.display = 'none';
+
+  kissApproach = true;
+  controlsLocked = true;
+
+  // kad princesės AI nebepriklijuotų prie stopPos
+  princessFrozen = false;
+  princessRoutePhase = 'done';
+  princessApproachAllowed = false; // ✅ kol vyksta kiss priėjimas, ji pati nebevaikšto
+
+  // vektorius tarp jų
+  const v = new THREE.Vector3().subVectors(princess.position, ninja.position);
+  v.y = 0;
+  const dist = v.length() || 1;
+  v.multiplyScalar(1 / dist); // unit
+
+  // šonas (kad sustotų šalia, ne "kaktom")
+  const side = new THREE.Vector3(-v.z, 0, v.x);
+
+  // ✅ mažas priėjimas: abu nueina PO PUSĘ atstumo
+  const sideDist = 0.25;  // arčiau vienas kito (0.45–0.7)
+  const faceGap  = 0.85;  // minimalus tarpelis
+
+  // ✅ norimas galutinis atstumas tarp jų (kad nesikirstų)
+  const desiredSeparation = 1.7; // 1.1–1.6, priklausomai nuo modelių
+
+  // kiek kiekvienas turi paeiti (abu po pusę)
+  const moveEach = Math.max(0, (dist - desiredSeparation) * 0.5);
+
+  kissNinjaTarget.copy(ninja.position)
+    .addScaledVector(v,  moveEach)
+    .addScaledVector(side, -sideDist);
+
+  kissPrincessTarget.copy(princess.position)
+    .addScaledVector(v, -moveEach)
+    .addScaledVector(side, +sideDist);
+
+  // animacijos tik priėjimui (nebūtina, bet gražiau)
+  if (actions.walk) fadeToAction('walk', 0.12);
+
+  if (princessActions.walk) {
+    princessActions.idle?.stop();
+    princessActions.talk?.stop();
+    princessActions.walk.reset().play();
+    princessActions.walk.timeScale = 1.0;
+  }
+}
+
+
+function updateKissApproach(delta) {
+  if (!kissApproach || !ninja || !princess) return;
+
+  const speed = 6.0;
+  const snap = 0.12;
+
+  // ninja juda į target
+  {
+    const dx = kissNinjaTarget.x - ninja.position.x;
+    const dz = kissNinjaTarget.z - ninja.position.z;
+    const d = Math.sqrt(dx*dx + dz*dz);
+
+    if (d > snap) {
+      const step = Math.min(speed * delta, d);
+      ninja.position.x += (dx/d) * step;
+      ninja.position.z += (dz/d) * step;
+      ninja.rotation.y = Math.atan2(dx, dz);
+    } else {
+      ninja.position.x = kissNinjaTarget.x;
+      ninja.position.z = kissNinjaTarget.z;
+    }
+  }
+
+  // princess juda į target
+  {
+    const dx = kissPrincessTarget.x - princess.position.x;
+    const dz = kissPrincessTarget.z - princess.position.z;
+    const d = Math.sqrt(dx*dx + dz*dz);
+
+    if (d > snap) {
+      const step = Math.min(speed * delta, d);
+      princess.position.x += (dx/d) * step;
+      princess.position.z += (dz/d) * step;
+      princess.rotation.y = Math.atan2(dx, dz);
+    } else {
+      princess.position.x = kissPrincessTarget.x;
+      princess.position.z = kissPrincessTarget.z;
+    }
+  }
+
+  // visada atsisuka vienas į kitą
+  faceTargetY(ninja, princess.position);
+  faceTargetY(princess, ninja.position);
+
+  // patikrinam ar abu jau vietoj
+  const nOK = ninja.position.distanceTo(kissNinjaTarget) < 0.15;
+  const pOK = princess.position.distanceTo(kissPrincessTarget) < 0.15;
+
+  if (nOK && pOK) {
+    kissApproach = false;
+    startKissNow();
+  }
+}
+
+function startKissNow() {
+  princessApproachAllowed = false; // laikom išjungtą per kiss
+
+  console.log('💋 startKissNow()');
+  // ✅ mažas "anti-clipping" pastūmimas (kad rankos mažiau lįstų kiaurai)
+ // ✅ labai mažas pastūmimas (kad nesusikirstų, bet NEatitolintų)
+const back = new THREE.Vector3().subVectors(princess.position, ninja.position);
+back.y = 0;
+back.normalize();
+
+princess.position.addScaledVector(back, 0.02);
+ninja.position.addScaledVector(back, -0.01);
+
+  kissStarted = true;
+  controlsLocked = true;
+
+  // ✅ 1) Sustabdom VISAS ninja animacijas, kad kiss nebūtų užgožtas
+  try {
+    if (mixer) mixer.stopAllAction();
+  } catch(e) {}
+
+  // ✅ 2) Sustabdom VISAS princess animacijas
+  try {
+    if (princessActions.walk) princessActions.walk.stop();
+    if (princessActions.talk) princessActions.talk.stop();
+    if (princessActions.idle) princessActions.idle.stop();
+  } catch(e) {}
+
+  // atsisukam vienas į kitą
+  faceTargetY(ninja, princess.position);
+  faceTargetY(princess, ninja.position);
+
+  // ✅ 3) Paleidžiam kiss (su pilnu svoriu)
+// ✅ 3) Paleidžiam kiss (su pilnu svoriu)
+if (ninjaKissAction) {
+  ninjaKissAction.reset();
+  ninjaKissAction.setLoop(THREE.LoopOnce, 1);
+  ninjaKissAction.clampWhenFinished = true;
+  ninjaKissAction.enabled = true;
+  ninjaKissAction.setEffectiveWeight(1);
+
+  // ✅ sulėtinam iki ~30s
+  const d = (ninjaKissClip && ninjaKissClip.duration) ? ninjaKissClip.duration : 4.5;
+  const ts = Math.max(0.05, d / KISS_TARGET_SECONDS); // mažesnis = lėčiau
+  ninjaKissAction.setEffectiveTimeScale(ts);
+
+  ninjaKissAction.play();
+}
+
+if (princessKissAction) {
+  princessKissAction.reset();
+  princessKissAction.setLoop(THREE.LoopOnce, 1);
+  princessKissAction.clampWhenFinished = true;
+  princessKissAction.enabled = true;
+  princessKissAction.setEffectiveWeight(1);
+
+  // ✅ sulėtinam iki ~30s
+  const d = (princessKissClip && princessKissClip.duration) ? princessKissClip.duration : 4.5;
+  const ts = Math.max(0.05, d / KISS_TARGET_SECONDS);
+  princessKissAction.setEffectiveTimeScale(ts);
+
+  princessKissAction.play();
+}
+  // 🎬 Po kiss pabaigos – lėtas užtemimas + "THE END"
+  setTimeout(() => {
+    startEndSequence();
+  }, (KISS_TARGET_SECONDS * 1000) + 1200); // +1.2s kad tikrai po rankų nusileidimo
+
+}
+
+
+
+
+
+
+   function endCurrentMinigame(success, customMessage) {
+  // sustabdom AIM spawn intervalą
+  if (aimSpawnIntervalId) {
+    clearInterval(aimSpawnIntervalId);
+    aimSpawnIntervalId = null;
+  }
+  // išvalom taikinius
+  if (aimTargetsContainer) {
+    aimTargetsContainer.innerHTML = '';
+  }
+
+  hideAllMinigameOverlays();
+
+  if (activeMinigameDoor !== null && success) {
+    miniGamesCompleted[activeMinigameDoor] = true;
+  }
+
+  minigameInProgress = false;
+  minigameFailed = !success;
+
+  const finishedDoor = activeMinigameDoor;
+  activeMinigameDoor = null;
+
+  if (success) {
+    const msg = customMessage || '✅ Mini žaidimas įveiktas!';
+    showMinigameMessage(msg);
+    checkAllMiniGamesDone();
+  } else {
+    const msg = customMessage || '❌ Nepavyko. Bandyk dar kartą.';
+
+    // parodome laišką su mygtuku "Bandyti dar kartą"
+    if (finishedDoor === 0) {
+      showLetter(msg, 'Bandyti dar kartą', () => {
+        activeMinigameDoor = 0;
+        startAimGame();
+      });
+    } else if (finishedDoor === 1) {
+      showLetter(msg, 'Bandyti dar kartą', () => {
+        activeMinigameDoor = 1;
+        startQuizGame();
+      });
+    } else if (finishedDoor === 2) {
+      showLetter(msg, 'Bandyti dar kartą', () => {
+        activeMinigameDoor = 2;
+        startCardsGame();
+      });
+    } else {
+      // jeigu dėl kažkokių priežasčių durų indekso nėra – bent jau parodom žinutę apačioje
+      showMinigameMessage(msg);
+    }
+  }
+}
+
+function checkAllMiniGamesDone() {
+  if (miniGamesCompleted[0] && miniGamesCompleted[1] && miniGamesCompleted[2]) {
+    teleportToPrincessTower();
+princessFrozen = false;
+  }
+}
+function showPressMMessage() {
+  if (!minigameMessage) return;
+  minigameMessage.style.display = 'block';
+  minigameMessageTimer = 9999; // kad nedingtų
+  minigameMessage.innerHTML = `Paspausk <b>M</b> <span style="color:#ff2b6a;">❤️</span>`;
+}
+
+
+    // nustatom, prie kurių durų stovi žaidėjas
+    function checkDoorMinigames() {
+      if (!ninja || doorObjects.length === 0) return;
+
+      if (!isHeroInTowerRoom()) {
+        currentDoorIndex = -1;
+        return;
+      }
+
+      let nearest = -1;
+      let nearestDistSq = 99999;
+
+      for (let i = 0; i < doorObjects.length; i++) {
+        const d = doorObjects[i];
+        const dx = ninja.position.x - d.position.x;
+        const dz = ninja.position.z - d.position.z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < 3 * 3 && distSq < nearestDistSq) {
+          nearestDistSq = distSq;
+          nearest = i;
+        }
+      }
+
+      currentDoorIndex = nearest;
+
+      if (!minigameInProgress) {
+        if (currentDoorIndex === 0) {
+          showMinigameMessage('🚪 1 durys: AIM žaidimas. Spausk F, kad pradėtum.');
+        } else if (currentDoorIndex === 1) {
+          showMinigameMessage('🚪 2 durys: klausimų testas apie merginą. Spausk F.');
+        } else if (currentDoorIndex === 2) {
+          showMinigameMessage('🚪 3 durys: kortų poros. Spausk F.');
+        }
+      }
+    }
+
+      function tryStartMinigame() {
+      if (minigameInProgress) return;
+
+      if (!isHeroInTowerRoom()) {
+        showMinigameMessage('Turi būti bokšto kambaryje prie durų.');
+        return;
+      }
+      if (currentDoorIndex < 0 || currentDoorIndex >= doorObjects.length) {
+        showMinigameMessage('Prieik arčiau vienų durų ir tada spausk F.');
+        return;
+      }
+      if (miniGamesCompleted[currentDoorIndex]) {
+        showMinigameMessage('Šitas mini žaidimas jau įveiktas.');
+        return;
+      }
+
+      activeMinigameDoor = currentDoorIndex;
+
+      let text = '';
+      if (activeMinigameDoor === 0) {
+        text = 'Pirmoji užduotis – tavo taiklumas. Per trumpą laiką turi pataikyti į kuo daugiau taikinių. Paspausk „Pradėti žaidimą“ ir parodyk, koks esi snaiperis!';
+      } else if (activeMinigameDoor === 1) {
+        text = 'Antroji užduotis – atsakyti į klausimus apie mane. Pažiūrėkim, kaip gerai mane pažįsti.';
+      } else if (activeMinigameDoor === 2) {
+        text = 'Trečioji užduotis – atsiminti kortų poras. Susikaupk ir parodyk savo atmintį.';
+      }
+
+      showLetter(text, 'Pradėti žaidimą', () => {
+        if (activeMinigameDoor === 0) {
+          startAimGame();
+        } else if (activeMinigameDoor === 1) {
+          startQuizGame();
+        } else if (activeMinigameDoor === 2) {
+          startCardsGame();
+        }
+      });
+    }
+
+
+    // ---------- 1 MINI-GAME: AIM ----------
+    const AIM_TIME_LIMIT = 25; // s
+    const AIM_REQUIRED_SCORE = 20;
+
+      function startAimGame() {
+      minigameInProgress = true;
+      minigameFailed = false;
+
+      aimScore = 0;
+      minigameTimer = 0;
+      if (aimInfo) {
+        aimInfo.textContent = `Taškai: 0 | Laikas: ${AIM_TIME_LIMIT}s`;
+      }
+      if (aimTargetsContainer) {
+        aimTargetsContainer.innerHTML = '';
+      }
+      if (aimOverlay) {
+        aimOverlay.style.display = 'block';
+      }
+
+      if (aimSpawnIntervalId) clearInterval(aimSpawnIntervalId);
+      aimSpawnIntervalId = setInterval(spawnAimTarget, 1000);
+    }
+
+
+    function spawnAimTarget() {
+      if (!aimTargetsContainer) return;
+      if (!minigameInProgress || activeMinigameDoor !== 0) return;
+
+      const box = aimTargetsContainer.getBoundingClientRect();
+      const size = 20;
+
+      const el = document.createElement('div');
+      el.className = 'aim-target';
+      el.style.position = 'absolute';
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.borderRadius = '50%';
+      el.style.border = '2px solid #ff5555';
+      el.style.boxShadow = '0 0 6px rgba(255,80,80,0.8)';
+      el.style.background = 'radial-gradient(circle, #ffaaaa 0%, #aa2222 70%)';
+      el.style.cursor = 'crosshair';
+
+      const maxX = box.width - size;
+      const maxY = box.height - size;
+      el.style.left = `${Math.random() * maxX}px`;
+      el.style.top  = `${Math.random() * maxY}px`;
+
+      aimTargetsContainer.appendChild(el);
+
+      // auto dingsta po 1.5s
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 900);
+    }
+
+    // ---------- 2 MINI-GAME: QUIZ ----------
+    const QUIZ_TIME_LIMIT = 120; // s
+    const QUIZ_PASS_SCORE = 7;
+
+        function startQuizGame() {
+      minigameInProgress = true;
+      minigameFailed = false;
+
+      quizIndex = 0;
+      quizScore = 0;
+      minigameTimer = 0;
+
+      if (quizOverlay) quizOverlay.style.display = 'block';
+      renderQuizQuestion();
+    }
+
+    function renderQuizQuestion() {
+      if (!quizOverlay) return;
+
+      if (quizIndex >= quizQuestions.length) {
+        const passed = quizScore >= QUIZ_PASS_SCORE;
+        const msg = passed
+          ? `✅ Testas įveiktas! Teisingi atsakymai: ${quizScore}/${quizQuestions.length}`
+          : `❌ Per mažai teisingų atsakymų (${quizScore}/${quizQuestions.length}).`;
+        endCurrentMinigame(passed, msg);
+        return;
+      }
+
+      const q = quizQuestions[quizIndex];
+      if (quizQuestionEl) quizQuestionEl.textContent = q.text;
+      if (quizProgressEl) {
+        quizProgressEl.textContent =
+          `Klausimas ${quizIndex + 1} iš ${quizQuestions.length} | Teisingi: ${quizScore}`;
+      }
+
+      if (quizOptionsEl) {
+        quizOptionsEl.innerHTML = '';
+        q.options.forEach((opt, i) => {
+          const btn = document.createElement('button');
+          btn.dataset.index = String(i);
+          btn.textContent = opt;
+          btn.style.padding = '6px 10px';
+          btn.style.borderRadius = '10px';
+          btn.style.border = 'none';
+          btn.style.cursor = 'pointer';
+          btn.style.background = 'rgba(90,130,255,0.9)';
+          btn.style.color = '#fff';
+          btn.style.textAlign = 'left';
+          quizOptionsEl.appendChild(btn);
+        });
+      }
+    }
+
+    function handleQuizAnswer(idx) {
+      if (!minigameInProgress || activeMinigameDoor !== 1) return;
+
+      const q = quizQuestions[quizIndex];
+      if (idx === q.correct) {
+        quizScore++;
+      }
+      quizIndex++;
+      renderQuizQuestion();
+    }
+
+    // ---------- 3 MINI-GAME: KORTŲ POROS ----------
+    const CARDS_TIME_LIMIT = 40; // s
+
+    function startCardsGame() {
+    minigameInProgress = true;
+      minigameFailed = false;
+      cards = [];
+      firstCardIndex = null;
+      secondCardIndex = null;
+      matchedPairs = 0;
+      minigameTimer = 0;
+
+      const values = [];
+      for (let v = 1; v <= 8; v++) {
+        values.push(v, v);
+      }
+
+      // shuffle
+      for (let i = values.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [values[i], values[j]] = [values[j], values[i]];
+      }
+
+      values.forEach(v => {
+        cards.push({ value: v, matched: false, flipped: false });
+      });
+
+      if (cardsOverlay) cardsOverlay.style.display = 'block';
+      if (cardsInfoEl) cardsInfoEl.textContent = 'Atverk poras per laiką.';
+
+      renderCardsGrid();
+    }
+
+    function renderCardsGrid() {
+      if (!cardsGridEl) return;
+      cardsGridEl.innerHTML = '';
+
+      cards.forEach((card, i) => {
+        const btn = document.createElement('button');
+        btn.dataset.cardIndex = String(i);
+        btn.style.height = '48px';
+        btn.style.borderRadius = '8px';
+        btn.style.border = 'none';
+        btn.style.cursor = 'pointer';
+        btn.style.fontWeight = '700';
+
+        if (card.matched) {
+          btn.textContent = String(card.value);
+          btn.style.background = 'rgba(90,220,120,0.9)';
+          btn.style.color = '#021';
+        } else if (card.flipped) {
+          btn.textContent = String(card.value);
+          btn.style.background = 'rgba(230,230,255,0.9)';
+          btn.style.color = '#000';
+        } else {
+          btn.textContent = '❓';
+          btn.style.background = 'rgba(40,60,120,0.9)';
+          btn.style.color = '#fff';
+        }
+
+        cardsGridEl.appendChild(btn);
+      });
+    }
+
+    function handleCardClick(idx) {
+      if (!minigameInProgress || activeMinigameDoor !== 2) return;
+      if (idx < 0 || idx >= cards.length) return;
+
+      const card = cards[idx];
+      if (card.matched || card.flipped) return;
+
+      if (firstCardIndex === null) {
+        firstCardIndex = idx;
+        card.flipped = true;
+        renderCardsGrid();
+        return;
+      }
+
+      if (secondCardIndex === null) {
+        secondCardIndex = idx;
+        card.flipped = true;
+        renderCardsGrid();
+
+        setTimeout(() => {
+          const c1 = cards[firstCardIndex];
+          const c2 = cards[secondCardIndex];
+
+          if (c1.value === c2.value) {
+            c1.matched = true;
+            c2.matched = true;
+            matchedPairs++;
+            if (matchedPairs === cards.length / 2) {
+              endCurrentMinigame(true, '✅ Visos poros surastos!');
+              return;
+            }
+          } else {
+            c1.flipped = false;
+            c2.flipped = false;
+          }
+
+          firstCardIndex = null;
+          secondCardIndex = null;
+          renderCardsGrid();
+        }, 600);
+      }
+    }
+
+    // bendras mini-games timeris
+    function updateMinigameTimer(delta) {
+      if (!minigameInProgress || activeMinigameDoor === null) return;
+
+      minigameTimer += delta;
+
+            if (activeMinigameDoor === 0) {
+        const left = Math.max(0, Math.ceil(AIM_TIME_LIMIT - minigameTimer));
+        if (aimInfo) {
+          aimInfo.textContent = `Taškai: ${aimScore} | Liko: ${left}s`;
+        }
+        if (minigameTimer >= AIM_TIME_LIMIT) {
+          const passed = aimScore >= AIM_REQUIRED_SCORE;
+          if (passed) {
+            endCurrentMinigame(
+              true,
+              `✅ Puikiai! Nušovei ${aimScore} taikinių.`
+            );
+          } else {
+            const diff = Math.max(0, AIM_REQUIRED_SCORE - aimScore);
+            const msg = `Šį kartą pritrūko ${diff} taškų iki pergalės. Bandyk dar kartą!`;
+            endCurrentMinigame(false, msg);
+          }
+        }
+
+      } else if (activeMinigameDoor === 1) {
+        if (minigameTimer >= QUIZ_TIME_LIMIT) {
+          const passed = quizScore >= QUIZ_PASS_SCORE;
+          endCurrentMinigame(
+            passed,
+            passed
+              ? `✅ Spėjai per laiką! (${quizScore}/${quizQuestions.length})`
+              : `❌ Laikas baigėsi. Teisingi: ${quizScore}/${quizQuestions.length}.`
+          );
+        }
+      } else if (activeMinigameDoor === 2) {
+        const left = Math.max(0, Math.ceil(CARDS_TIME_LIMIT - minigameTimer));
+        if (cardsInfoEl) {
+          cardsInfoEl.textContent = `Atverk poras. Liko: ${left}s`;
+        }
+        if (minigameTimer >= CARDS_TIME_LIMIT) {
+          endCurrentMinigame(false, '❌ Laikas baigėsi, visų porų nespėjai.');
+        }
+      }
+    }
+
+
+    // ---------- MINIMAPAS ----------
+    function drawMinimap() {
+      if (!ninja) return;
+
+      const ctx = mapCtx;
+      const w = minimapCanvas.width;
+      const h = minimapCanvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.fillStyle = 'rgba(5, 10, 20, 0.9)';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+
+      const scale = (w * 0.9) / (MAP_VIEW_RADIUS * 2);
+
+      // Miško sala
+      ctx.fillStyle = '#193b19';
+      ctx.beginPath();
+      ctx.arc(
+        (FOREST_CENTER.x - ninja.position.x) * scale,
+        (FOREST_CENTER.y - ninja.position.z) * scale,
+        FOREST_RADIUS * scale,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+
+      // Pilies sala
+      ctx.fillStyle = '#777777';
+      ctx.beginPath();
+      ctx.arc(
+        (goalPos.x - ninja.position.x) * scale,
+        (goalPos.z - ninja.position.z) * scale,
+        CASTLE_RADIUS * scale,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+
+      // Bokšto kambarys
+      ctx.fillStyle = '#999999';
+      ctx.beginPath();
+      ctx.arc(
+        (TOWER_ROOM_CENTER.x - ninja.position.x) * scale,
+        (TOWER_ROOM_CENTER.y - ninja.position.z) * scale,
+        4,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+
+      // Princesės bokštas
+      ctx.fillStyle = '#ff66aa';
+      ctx.beginPath();
+      ctx.arc(
+        (PRINCESS_TOWER_CENTER.x - ninja.position.x) * scale,
+        (PRINCESS_TOWER_CENTER.y - ninja.position.z) * scale,
+        4,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+
+      // Medžiai
+      ctx.fillStyle = '#1c4a2a';
+      for (const tree of treesData) {
+        const dx = tree.x - ninja.position.x;
+        const dz = tree.z - ninja.position.z;
+        if (Math.abs(dx) > MAP_VIEW_RADIUS || Math.abs(dz) > MAP_VIEW_RADIUS) continue;
+        const mx = dx * scale;
+        const mz = dz * scale;
+        ctx.beginPath();
+        ctx.arc(mx, mz, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Džiugas
+      if (dziugas) {
+        const dx = dziugas.position.x - ninja.position.x;
+        const dz = dziugas.position.z - ninja.position.z;
+        if (Math.abs(dx) <= MAP_VIEW_RADIUS && Math.abs(dz) <= MAP_VIEW_RADIUS) {
+          const mx = dx * scale;
+          const mz = dz * scale;
+          ctx.fillStyle = dziugasFound ? '#00c8ff' : '#4aa3ff';
+          ctx.beginPath();
+          ctx.arc(mx, mz, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Katinas
+      if (cat) {
+        const dx = cat.position.x - ninja.position.x;
+        const dz = cat.position.z - ninja.position.z;
+        if (Math.abs(dx) <= MAP_VIEW_RADIUS && Math.abs(dz) <= MAP_VIEW_RADIUS) {
+          const mx = dx * scale;
+          const mz = dz * scale;
+          ctx.fillStyle = catFollowing ? '#ff99ff' : '#ffccff';
+          ctx.beginPath();
+          ctx.arc(mx, mz, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Pilies centras markeris
+      ctx.fillStyle = '#ff4444';
+      const gx = (goalPos.x - ninja.position.x) * scale;
+      const gz = (goalPos.z - ninja.position.z) * scale;
+      if (Math.abs(gx) < w / 2 && Math.abs(gz) < h / 2) {
+        ctx.beginPath();
+        ctx.arc(gx, gz, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Herojaus rodyklė
+      ctx.save();
+      ctx.rotate(-ninja.rotation.y + Math.PI);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(4, 6);
+      ctx.lineTo(-4, 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      ctx.restore();
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.strokeRect(4, 4, w - 8, h - 8);
+    }
+  </script>
+</body>
+</html>
