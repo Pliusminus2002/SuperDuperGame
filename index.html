@@ -250,11 +250,9 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
     import { FBXLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/FBXLoader.js';
+import { createSquidAddon } from './src/addons/squid.js';
     const Addons = {};
-    Addons.squid = {
-  start() { console.log('🦑 squid START'); },
-  update(dt) {}
-};
+Addons.squid = createSquidAddon();
 let letterOpen = false;
 let letterTypingTimer = null;
 
@@ -370,7 +368,7 @@ function startSquidMode() {
     camYawOffset = Math.PI;
   }
 
-  Addons.squid?.start?.();
+ Addons.squid?.start?.({ scene, player: ninja });
 }
 const clock = new THREE.Clock();
 
@@ -2594,7 +2592,7 @@ if ((key === 'm' || key === 'M') && isDown) {
     updateCamera();
 
     // squid taisyklės (kai turėsi)
-    Addons.squid?.update?.(delta);
+    Addons.squid?.update?.(delta, { scene, player: ninja });
   }
 }
 
