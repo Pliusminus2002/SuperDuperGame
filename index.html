@@ -349,7 +349,16 @@ function startSquidMode() {
   letterOpen = false;
   kissStarted = false;
   kissApproach = false;
-
+  try {
+    if (ninjaKissAction) {
+      ninjaKissAction.stop();
+      ninjaKissAction.reset();
+    }
+    if (princessKissAction) {
+      princessKissAction.stop();
+      princessKissAction.reset();
+    }
+  } catch (e) {}
   controlsLocked = false;
   keys.forward = keys.back = keys.left = keys.right = keys.shift = false;
 
@@ -370,6 +379,7 @@ function startSquidMode() {
   // teleport
   if (ninja) {
     ninja.position.set(1000, 0, 34);
+        snapNinjaFeetToGround(0.08);
     camYawOffset = Math.PI;
 
     // ✅ priverstinai idle kai startuoja squid
@@ -2518,23 +2528,7 @@ if ((key === 'b' || key === 'B') && isDown) {
 }
 // 🧪 DEV SKIP: T -> į princesės bokštą po mini-games
 if ((key === 't' || key === 'T') && isDown) {
-  // pažymim mini-games kaip baigtus (kad logika nelauktų durų)
-  miniGamesCompleted[0] = true;
-  miniGamesCompleted[1] = true;
-  miniGamesCompleted[2] = true;
-
-  // kad rodytųsi princesė ir leistų sceną
-  princessApproachAllowed = true;
-  princessFrozen = false;
-  princessScene = 'afterMinigames';
-  princessSceneStarted = false;
-  princessSceneText =
-    'Pagaliau… tu čia. ❤️\n\n' +
-    'Bet dar vienas dalykas.\n' +
-    'Jei nori mano širdies — parodyk man savo geriausią breakdance.\n\n' +
-    'Spausk B. 😄';
-
-  teleportToPrincessTower();
+  startSquidMode();
 }
 
 // 💋 KISS — paspaudi M
