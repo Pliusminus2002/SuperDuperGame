@@ -2,6 +2,7 @@
 <html lang="lt">
 <head>
   <meta charset="UTF-8" />
+  <base href="/SuperDuperGame/">
   <title>Super Duper game</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='0' y='14'>🎮</text></svg>">
   <style>
@@ -345,12 +346,25 @@ function startSquidMode() {
   try { closeLetter(); } catch(e) {}
   try { hideNpcSpeech(); } catch(e) {}
 
-  letterOpen = false;          // jei kartais liko true
+  letterOpen = false;
   kissStarted = false;
   kissApproach = false;
-
+  try {
+    if (ninjaKissAction) {
+      ninjaKissAction.stop();
+      ninjaKissAction.reset();
+    }
+    if (princessKissAction) {
+      princessKissAction.stop();
+      princessKissAction.reset();
+    }
+  } catch (e) {}
   controlsLocked = false;
   keys.forward = keys.back = keys.left = keys.right = keys.shift = false;
+
+  velY = 0;
+  onGround = true;
+  isJumping = false;
 
   setMinimapVisible(false);
 
@@ -364,11 +378,21 @@ function startSquidMode() {
 
   // teleport
   if (ninja) {
-    ninja.position.set(1000, 0, 0);
+    ninja.position.set(1000, 0, 34);
+        snapNinjaFeetToGround(0.08);
     camYawOffset = Math.PI;
+
+    // ✅ priverstinai idle kai startuoja squid
+    try {
+      if (mixer) mixer.stopAllAction();
+      if (actions.idle) {
+        actions.idle.reset().play();
+        activeAction = actions.idle;
+      }
+    } catch(e) {}
   }
 
- Addons.squid?.start?.({ scene, player: ninja });
+  Addons.squid?.start?.({ scene, player: ninja });
 }
 const clock = new THREE.Clock();
 
@@ -1023,6 +1047,17 @@ function startEndSequence() {
   if (endSequenceStarted) return;
   endSequenceStarted = true;
 Addons.runSystem?.finishRun();
+  // ✅ RESET: grąžinam ninja į idle prieš fade + squid, kad neliktų pakeltų rankų
+  try {
+    if (mixer) mixer.stopAllAction();
+    if (actions.idle) {
+      actions.idle.reset();
+      actions.idle.setLoop(THREE.LoopRepeat);
+      actions.idle.clampWhenFinished = false;
+      actions.idle.play();
+      activeAction = actions.idle;
+    }
+  } catch (e) {}
   // užrakinam judėjimą (muzikos NELIEČIAM)
   controlsLocked = true;
   keys.forward = keys.back = keys.left = keys.right = keys.shift = false;
@@ -2493,23 +2528,7 @@ if ((key === 'b' || key === 'B') && isDown) {
 }
 // 🧪 DEV SKIP: T -> į princesės bokštą po mini-games
 if ((key === 't' || key === 'T') && isDown) {
-  // pažymim mini-games kaip baigtus (kad logika nelauktų durų)
-  miniGamesCompleted[0] = true;
-  miniGamesCompleted[1] = true;
-  miniGamesCompleted[2] = true;
-
-  // kad rodytųsi princesė ir leistų sceną
-  princessApproachAllowed = true;
-  princessFrozen = false;
-  princessScene = 'afterMinigames';
-  princessSceneStarted = false;
-  princessSceneText =
-    'Pagaliau… tu čia. ❤️\n\n' +
-    'Bet dar vienas dalykas.\n' +
-    'Jei nori mano širdies — parodyk man savo geriausią breakdance.\n\n' +
-    'Spausk B. 😄';
-
-  teleportToPrincessTower();
+  startSquidMode();
 }
 
 // 💋 KISS — paspaudi M
@@ -2592,7 +2611,31 @@ if ((key === 'm' || key === 'M') && isDown) {
     updateCamera();
 
     // squid taisyklės (kai turėsi)
-    Addons.squid?.update?.(delta, { scene, player: ninja });
+       const squidResult = Addons.squid?.update?.(delta, { scene, player: ninja });
+
+    if (squidResult === 'dead') {
+      try {
+        playAudio(audio.deathSound, 1.0);
+      } catch (e) {}
+    }
+
+    if (squidResult === 'win') {
+      Addons.squid?.stop?.();
+
+      // grąžinam žaidėją į normalią pasaulio vietą
+      ninja.position.set(0, 0, 0);
+      velY = 0;
+      onGround = true;
+      isJumping = false;
+
+      gameMode = 'story';
+      setMinimapVisible(true);
+
+      showLetter(
+        'Tu išgyvenai Squid Game. 🏆\n\nDabar galim kurti kitą mini-game.',
+        'Tęsti'
+      );
+    }
   }
 }
 
