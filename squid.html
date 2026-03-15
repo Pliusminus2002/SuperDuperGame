@@ -3,15 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <base href="/SuperDuperGame/">
-  <title>Squid Game</title>
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-    }
-  }
-  </script>
-  <title>Squid Game</title>
   <style>
     body {
       margin: 0;
@@ -145,8 +136,8 @@
   </div>
 
   <script type="module">
-import * as THREE from "three";
-import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
     const canvas = document.getElementById("game");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
@@ -342,8 +333,8 @@ let stageTransitioning = false;
       setPlayerPos(0, 0, 0);
     }
 
-    loader.load(
-      "./models/ninja@idle.glb",
+   loader.load(
+  "/SuperDuperGame/models/ninja@idle.glb",
       (gltf) => {
         player = gltf.scene;
         player.scale.set(1.4, 1.4, 1.4);
