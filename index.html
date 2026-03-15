@@ -338,61 +338,7 @@ function setMinimapVisible(on) {
   mm.style.display = on ? 'block' : 'none';
 }
 function startSquidMode() {
-  console.log('🦑 startSquidMode()');
-
-  gameMode = 'squid';
-
-  // ✅ uždaryti UI/lock'us
-  try { closeLetter(); } catch(e) {}
-  try { hideNpcSpeech(); } catch(e) {}
-
-  letterOpen = false;
-  kissStarted = false;
-  kissApproach = false;
-  try {
-    if (ninjaKissAction) {
-      ninjaKissAction.stop();
-      ninjaKissAction.reset();
-    }
-    if (princessKissAction) {
-      princessKissAction.stop();
-      princessKissAction.reset();
-    }
-  } catch (e) {}
-  controlsLocked = false;
-  keys.forward = keys.back = keys.left = keys.right = keys.shift = false;
-
-  velY = 0;
-  onGround = true;
-  isJumping = false;
-
-  setMinimapVisible(false);
-
-  const overlay = document.getElementById('end-overlay');
-  if (overlay) overlay.style.display = 'none';
-
-  // muzika
-  try { currentMusic?.pause(); } catch(e) {}
-  currentMusic = null;
-  musicOverride = null;
-
-  // teleport
-  if (ninja) {
-    ninja.position.set(1000, 0, 34);
-        snapNinjaFeetToGround(0.08);
-    camYawOffset = Math.PI;
-
-    // ✅ priverstinai idle kai startuoja squid
-    try {
-      if (mixer) mixer.stopAllAction();
-      if (actions.idle) {
-        actions.idle.reset().play();
-        activeAction = actions.idle;
-      }
-    } catch(e) {}
-  }
-
-  Addons.squid?.start?.({ scene, player: ninja });
+  window.location.href = "./squid.html?v=5";
 }
 const clock = new THREE.Clock();
 
