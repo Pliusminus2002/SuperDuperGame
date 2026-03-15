@@ -2487,74 +2487,64 @@ function loadAnim(name, url, useFBX = false) {
 
 
     // ---------- INPUT ----------
-    function onKeyChange(event, isDown) {
-      const key = event.key;
-// jei atidarytas laiškas – užblokuojam visus valdymus (w/a/s/d/e/p/f/b ir t.t.)
-if (letterOpen && !npcWaitingForAnswer) return;
+  function onKeyChange(event, isDown) {
+  const key = event.key;
 
-
-      if (key === 'w' || key === 'W' || key === 'ArrowUp')    keys.forward = isDown;
-      if (key === 's' || key === 'S' || key === 'ArrowDown')  keys.back    = isDown;
-      if (key === 'a' || key === 'A' || key === 'ArrowLeft')  keys.left    = isDown;
-      if (key === 'd' || key === 'D' || key === 'ArrowRight') keys.right   = isDown;
-      if (key === 'Shift') keys.shift = isDown;
-
-      // šuolis
-      if (key === ' ' && isDown) {
-        if (onGround && !isJumping && actions.jump) {
-          isJumping = true;
-          velY = JUMP_FORCE;
-          fadeToAction('jump', 0.1, true);
-        }
-      }
-
-      // vartai
-      if ((key === 'e' || key === 'E') && isDown) {
-        tryOpenGate();
-      }
-
-      // katinas
-      if ((key === 'p' || key === 'P') && isDown) {
-        tryCharmCat();
-      }
-
-      // mini-games F
-      if ((key === 'f' || key === 'F') && isDown) {
-        tryStartMinigame();
-      }
-// BREAKDANCE — paspaudi B
-if ((key === 'b' || key === 'B') && isDown) {
-  startBreakdance();
-}
-// 🧪 DEV SKIP: T -> į princesės bokštą po mini-games
-if ((key === 't' || key === 'T') && isDown) {
-  startSquidMode();
-}
-
-// 💋 KISS — paspaudi M
-if ((key === 'm' || key === 'M') && isDown) {
-  if (kissStarted || kissApproach) return;
-
-  if (!showPressMHint) {
-    showMinigameMessage('Dar negalima 🙂');
+  if ((key === 't' || key === 'T') && isDown) {
+    startSquidMode();
     return;
   }
 
-  // jei animacijos dar kraunasi — palaukiam (paspaudimas išsaugomas)
-  if (!kissReady) {
-    pendingKissPress = true;
-    showMinigameMessage('⏳ Kraunu kiss animaciją...');
-    minigameMessageTimer = 2.0;
-    return;
-  }
+  if (letterOpen && !npcWaitingForAnswer) return;
 
-  startKissApproach();
-}
+  if (key === 'w' || key === 'W' || key === 'ArrowUp') keys.forward = isDown;
+  if (key === 's' || key === 'S' || key === 'ArrowDown') keys.back = isDown;
+  if (key === 'a' || key === 'A' || key === 'ArrowLeft') keys.left = isDown;
+  if (key === 'd' || key === 'D' || key === 'ArrowRight') keys.right = isDown;
+  if (key === 'Shift') keys.shift = isDown;
 
-
-
-
+  if (key === ' ' && isDown) {
+    if (onGround && !isJumping && actions.jump) {
+      isJumping = true;
+      velY = JUMP_FORCE;
+      fadeToAction('jump', 0.1, true);
     }
+  }
+
+  if ((key === 'e' || key === 'E') && isDown) {
+    tryOpenGate();
+  }
+
+  if ((key === 'p' || key === 'P') && isDown) {
+    tryCharmCat();
+  }
+
+  if ((key === 'f' || key === 'F') && isDown) {
+    tryStartMinigame();
+  }
+
+  if ((key === 'b' || key === 'B') && isDown) {
+    startBreakdance();
+  }
+
+  if ((key === 'm' || key === 'M') && isDown) {
+    if (kissStarted || kissApproach) return;
+
+    if (!showPressMHint) {
+      showMinigameMessage('Dar negalima 🙂');
+      return;
+    }
+
+    if (!kissReady) {
+      pendingKissPress = true;
+      showMinigameMessage('⏳ Kraunu kiss animaciją...');
+      minigameMessageTimer = 2.0;
+      return;
+    }
+
+    startKissApproach();
+  }
+}
 
     function onResize() {
       camera.aspect = window.innerWidth / window.innerHeight;

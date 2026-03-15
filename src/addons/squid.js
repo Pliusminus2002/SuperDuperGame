@@ -4,6 +4,7 @@ import * as THREE from "three";
 export function createSquidAddon() {
   let enabled = false;
   let root = null;
+  let arenaFloor = null;
 
   let ui = { box: null, state: null, timer: null };
 
@@ -14,164 +15,198 @@ export function createSquidAddon() {
   let doll = null;
   let dollWatching = false;
 
+  let playerRef = null;
   let lastPlayerPos = new THREE.Vector3();
   const moveThreshold = 0.02;
 
   function createUI() {
     if (ui.box) return;
+
     ui.box = document.createElement("div");
     ui.box.style.cssText = `
-      position:fixed; left:16px; top:16px; z-index:9999;
-      font-family:system-ui; color:white;
-      background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.2);
-      padding:10px 12px; border-radius:12px; min-width:180px;
+      position:fixed;
+      left:16px;
+      top:16px;
+      z-index:9999;
+      font-family:system-ui;
+      color:white;
+      background:rgba(0,0,0,0.55);
+      border:1px solid rgba(255,255,255,0.2);
+      padding:12px 14px;
+      border-radius:12px;
+      min-width:180px;
     `;
-    ui.box.innerHTML = `
-      <div style="font-weight:800; letter-spacing:0.5px;">SQUID MODE</div>
-      <div id="sq_state" style="margin-top:6px; font-size:14px;">...</div>
-      <div id="sq_timer" style="margin-top:4px; font-size:14px; opacity:0.9;">...</div>
-      <div style="margin-top:8px; font-size:12px; opacity:0.8;">WASD judėk. Per RED – nejudėk.</div>
-    `;
+
+    ui.state = document.createElement("div");
+    ui.timer = document.createElement("div");
+
+    ui.state.textContent = "Squid Game";
+    ui.timer.textContent = "Laikas: 60";
+
+    ui.box.appendChild(ui.state);
+    ui.box.appendChild(ui.timer);
     document.body.appendChild(ui.box);
-    ui.state = ui.box.querySelector("#sq_state");
-    ui.timer = ui.box.querySelector("#sq_timer");
   }
 
-  function destroyUI() {
-    if (!ui.box) return;
-    ui.box.remove();
-    ui.box = null;
-    ui.state = null;
-    ui.timer = null;
+  function removeUI() {
+    if (ui.box && ui.box.parentNode) {
+      ui.box.parentNode.removeChild(ui.box);
+    }
+    ui = { box: null, state: null, timer: null };
   }
 
-  function buildArena(scene) {
+  function createArena(scene) {
     root = new THREE.Group();
-    root.name = "SquidArena";
+    root.name = "SquidArenaRoot";
 
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(40, 80),
-      new THREE.MeshStandardMaterial({ color: 0x1b1b1b })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(1000, 0, 0);
-    root.add(floor);
+    // GRINDYS
+    const floorGeo = new THREE.CircleGeometry(26, 64);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0xd9c27a
+    });
 
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b });
+    arenaFloor = new THREE.Mesh(floorGeo, floorMat);
+    arenaFloor.rotation.x = -Math.PI / 2;
+    arenaFloor.position.set(1000, 0, 0);
+    arenaFloor.receiveShadow = true;
+    root.add(arenaFloor);
 
-    const wallL = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 80), wallMat);
-    wallL.position.set(1000 - 20.5, 3, 0);
-    root.add(wallL);
-
-    const wallR = wallL.clone();
-    wallR.position.x = 1000 + 20.5;
-    root.add(wallR);
-
-    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(40, 6, 1), wallMat);
-    wallBack.position.set(1000, 3, -40.5);
-    root.add(wallBack);
-
-    const wallFront = wallBack.clone();
-    wallFront.position.z = 40.5;
-    root.add(wallFront);
-
+    // START linija
     const startLine = new THREE.Mesh(
-      new THREE.BoxGeometry(38, 0.05, 0.6),
-      new THREE.MeshStandardMaterial({ color: 0x00aa55 })
+      new THREE.BoxGeometry(12, 0.02, 0.5),
+      new THREE.MeshBasicMaterial({ color: 0x00ff88 })
     );
-    startLine.position.set(1000, 0.03, 32);
+    startLine.position.set(1000, 0.03, 18);
     root.add(startLine);
 
+    // FINISH linija
     const finishLine = new THREE.Mesh(
-      new THREE.BoxGeometry(38, 0.05, 0.6),
-      new THREE.MeshStandardMaterial({ color: 0xaa0044 })
+      new THREE.BoxGeometry(12, 0.02, 0.5),
+      new THREE.MeshBasicMaterial({ color: 0xff3355 })
     );
-    finishLine.position.set(1000, 0.03, -32);
+    finishLine.position.set(1000, 0.03, -18);
     root.add(finishLine);
 
+    // Lėlė
     doll = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.6, 0.6, 3, 10),
-      new THREE.MeshStandardMaterial({ color: 0xffcc88 })
+      new THREE.BoxGeometry(1.5, 4, 1.5),
+      new THREE.MeshStandardMaterial({ color: 0xffaa88 })
     );
-    doll.position.set(1000, 1.5, -36);
+    doll.position.set(1000, 2, -22);
     root.add(doll);
 
     scene.add(root);
   }
 
-  function setPhase(next) {
-    phase = next;
-    phaseT = 0;
+  function clearArena(scene) {
+    if (!root) return;
+    scene.remove(root);
 
-    if (phase === "green") dollWatching = false;
-    if (phase === "red") dollWatching = true;
+    root.traverse((obj) => {
+      if (obj.geometry) obj.geometry.dispose?.();
+      if (obj.material) {
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach((m) => m.dispose?.());
+        } else {
+          obj.material.dispose?.();
+        }
+      }
+    });
 
-    if (doll) doll.rotation.y = dollWatching ? Math.PI : 0;
+    root = null;
+    arenaFloor = null;
+    doll = null;
   }
 
-  function respawnPlayer(player) {
-    player.position.set(1000, 0, 34);
-    lastPlayerPos.copy(player.position);
-    setPhase("green");
+  function setStateText() {
+    if (!ui.state) return;
+    if (phase === "green") ui.state.textContent = "🟢 GREEN LIGHT";
+    else if (phase === "red") ui.state.textContent = "🔴 RED LIGHT";
+    else if (phase === "dead") ui.state.textContent = "💀 PRALAIMĖJAI";
+    else if (phase === "finished") ui.state.textContent = "🏆 LAIMĖJAI";
+    else ui.state.textContent = "Squid Game";
   }
 
-  function start(ctx) {
-    const { scene, player } = ctx;
-    if (!scene || !player) return;
-
+  function start({ scene, player }) {
     enabled = true;
-    createUI();
-    if (!root) buildArena(scene);
-
+    playerRef = player;
+    phase = "green";
+    phaseT = 0;
     timeLeft = 60;
-    setPhase("green");
-    respawnPlayer(player);
+    dollWatching = false;
 
-    if (ui.state) ui.state.textContent = "GREEN ✅";
-    if (ui.timer) ui.timer.textContent = `Time: ${timeLeft.toFixed(0)}s`;
+    createArena(scene);
+    createUI();
+
+    if (playerRef) {
+      lastPlayerPos.copy(playerRef.position);
+    }
+
+    setStateText();
+    if (ui.timer) ui.timer.textContent = `Laikas: ${Math.ceil(timeLeft)}`;
   }
 
-  function stop() {
+  function stop(scene) {
     enabled = false;
-    destroyUI();
+    removeUI();
+    if (scene) clearArena(scene);
   }
 
-  function update(dt, ctx) {
-    if (!enabled) return;
-    const { player } = ctx;
-    if (!player) return;
+  function update(delta, { scene, player }) {
+    if (!enabled || !player) return null;
 
-    timeLeft -= dt;
-    if (timeLeft <= 0) {
-      timeLeft = 0;
-      setPhase("dead");
+    phaseT += delta;
+    timeLeft -= delta;
+
+    if (ui.timer) ui.timer.textContent = `Laikas: ${Math.max(0, Math.ceil(timeLeft))}`;
+
+    // GREEN / RED ciklas
+    if (phase === "green" && phaseT >= 3) {
+      phase = "red";
+      phaseT = 0;
+      dollWatching = true;
+      setStateText();
+    } else if (phase === "red" && phaseT >= 2) {
+      phase = "green";
+      phaseT = 0;
+      dollWatching = false;
+      setStateText();
     }
 
-    phaseT += dt;
-    if (phase === "green" && phaseT > 2.2) setPhase("red");
-    if (phase === "red" && phaseT > 1.8) setPhase("green");
-
-    if (ui.state) ui.state.textContent = dollWatching ? "RED ⛔" : "GREEN ✅";
-    if (ui.timer) ui.timer.textContent = `Time: ${timeLeft.toFixed(0)}s`;
-
-    if (player.position.z < -32) {
-      setPhase("finished");
-      if (ui.state) ui.state.textContent = "FINISH 🏁";
-      return;
-    }
-
-    if (dollWatching) {
+    // tikrinam judėjimą per RED
+    if (phase === "red") {
       const moved = player.position.distanceTo(lastPlayerPos) > moveThreshold;
-      if (moved) setPhase("dead");
-    }
-
-    if (phase === "dead") {
-      if (ui.state) ui.state.textContent = "DEAD 💀 respawn...";
-      respawnPlayer(player);
+      if (moved) {
+        phase = "dead";
+        setStateText();
+        enabled = false;
+        return "dead";
+      }
     }
 
     lastPlayerPos.copy(player.position);
+
+    // finish linija
+    if (player.position.z <= -18) {
+      phase = "finished";
+      setStateText();
+      enabled = false;
+      return "win";
+    }
+
+    if (timeLeft <= 0) {
+      phase = "dead";
+      setStateText();
+      enabled = false;
+      return "dead";
+    }
+
+    return null;
   }
 
-  return { start, stop, update };
+  return {
+    start,
+    update,
+    stop
+  };
 }
