@@ -176,7 +176,7 @@ import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/
 
     const clock = new THREE.Clock();
     const loader = new GLTFLoader();
-
+let mixer = null;
     let player = null;
     let fallbackPlayer = null;
 
@@ -333,20 +333,28 @@ let stageTransitioning = false;
       setPlayerPos(0, 0, 0);
     }
 
-   loader.load(
+loader.load(
   "/SuperDuperGame/models/ninja@idle.glb",
-      (gltf) => {
-        player = gltf.scene;
-        player.scale.set(1.4, 1.4, 1.4);
-        scene.add(player);
-        startStage(1);
-      },
-      undefined,
-      () => {
-        createFallbackPlayer();
-        startStage(1);
-      }
-    );
+  (gltf) => {
+    player = gltf.scene;
+    player.scale.set(1.4, 1.4, 1.4);
+    scene.add(player);
+
+    if (gltf.animations && gltf.animations.length > 0) {
+      mixer = new THREE.AnimationMixer(player);
+      const idleAction = mixer.clipAction(gltf.animations[0]);
+      idleAction.play();
+    }
+
+    startStage(1);
+  },
+  undefined,
+  (err) => {
+    console.error("Nepavyko užkrauti ninja@idle.glb:", err);
+    createFallbackPlayer();
+    startStage(1);
+  }
+);
 
     // -------------------------
     // STAGE 1 - RED LIGHT GREEN LIGHT
@@ -984,12 +992,14 @@ let stageTransitioning = false;
     function animate() {
       requestAnimationFrame(animate);
 
-      const delta = clock.getDelta();
+   const delta = clock.getDelta();
 
-      updatePlayerMovement(delta);
-      updateStages(delta);
-      updateCamera();
-      updateUI();
+if (mixer) mixer.update(delta);
+
+updatePlayerMovement(delta);
+updateStages(delta);
+updateCamera();
+updateUI();
 
       renderer.render(scene, camera);
     }
