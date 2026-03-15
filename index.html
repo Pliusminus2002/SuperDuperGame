@@ -251,7 +251,7 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
     import { FBXLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/FBXLoader.js';
-import { createSquidAddon } from './src/addons/squid.js';
+import { createSquidAddon } from './src/addons/squid.js?v=777';
     const Addons = {};
 Addons.squid = createSquidAddon();
 let letterOpen = false;
@@ -1080,7 +1080,7 @@ Addons.runSystem?.finishRun();
     requestAnimationFrame(step);
   } else {
     // ✅ Kai užtemė iki galo
-    startSquidMode();
+    window.location.href = "./squid.html?v=2";
   }
 };
 
@@ -2610,7 +2610,7 @@ function loadAnim(name, url, useFBX = false) {
     }
 
     if (squidResult === 'win') {
-      Addons.squid?.stop?.();
+      Addons.squid?.stop?.(scene);
 
       // grąžinam žaidėją į normalią pasaulio vietą
       ninja.position.set(0, 0, 0);
