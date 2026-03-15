@@ -138,7 +138,6 @@
   <script type="module">
     import * as THREE from "./three.module.js";
     import { GLTFLoader } from "./GLTFLoader.js";
-
     const canvas = document.getElementById("game");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
@@ -195,6 +194,7 @@
     let stageStarted = false;
     let stageTimer = 0;
     let currentRoot = null;
+    
 
     let moveSpeed = 8;
     let enemy = null;
@@ -202,7 +202,7 @@
     let playerHp = 100;
     let enemyAttackCooldown = 0;
     let playerAttackCooldown = 0;
-
+let stageTransitioning = false;
     // -------------------------
     // COMMON HELPERS
     // -------------------------
@@ -260,19 +260,21 @@
       return player || fallbackPlayer;
     }
 
-    function respawnCurrentStage(message = "Bandyk dar kartą") {
-      showBigMessage(message, 1.7);
-      stageStarted = false;
-      controlsLocked = false;
-      startStage(stage);
-    }
+   function respawnCurrentStage(message = "Bandyk dar kartą") {
+  stageTransitioning = false;
+  showBigMessage(message, 1.7);
+  stageStarted = false;
+  controlsLocked = false;
+  startStage(stage);
+}
 
-    function nextStage() {
-      stage++;
-      stageStarted = false;
-      controlsLocked = false;
-      startStage(stage);
-    }
+   function nextStage() {
+  stageTransitioning = false;
+  stage++;
+  stageStarted = false;
+  controlsLocked = false;
+  startStage(stage);
+}
 
     function goToMenuOrStory() {
       showBigMessage("Tu įveikei visus žaidimus!", 3);
@@ -437,11 +439,14 @@
 
       rlgl.lastPos.copy(obj.position);
 
-      if (obj.position.z <= -18) {
-        showBigMessage("1 žaidimas įveiktas!", 2);
-        setTimeout(nextStage, 1800);
-        return;
-      }
+   if (obj.position.z <= -18) {
+  if (stageTransitioning) return;
+  stageTransitioning = true;
+  controlsLocked = true;
+  showBigMessage("1 žaidimas įveiktas!", 2);
+  setTimeout(nextStage, 1800);
+  return;
+}
 
       if (stageTimer <= 0) {
         respawnCurrentStage("Baigėsi laikas 💀");
@@ -561,10 +566,13 @@
       }
 
       if (obj.position.z <= -18) {
-        showBigMessage("2 žaidimas įveiktas!", 2);
-        setTimeout(nextStage, 1800);
-        return;
-      }
+  if (stageTransitioning) return;
+  stageTransitioning = true;
+  controlsLocked = true;
+  showBigMessage("2 žaidimas įveiktas!", 2);
+  setTimeout(nextStage, 1800);
+  return;
+}
 
       if (stageTimer <= 0) {
         respawnCurrentStage("Baigėsi laikas 💀");
@@ -665,11 +673,14 @@
             t.material.color.set(0x55ff55);
             memoryGame.inputIndex++;
 
-            if (memoryGame.inputIndex >= memoryGame.sequence.length) {
-              showBigMessage("3 žaidimas įveiktas!", 2);
-              setTimeout(nextStage, 1800);
-              return;
-            }
+           if (memoryGame.inputIndex >= memoryGame.sequence.length) {
+  if (stageTransitioning) return;
+  stageTransitioning = true;
+  controlsLocked = true;
+  showBigMessage("3 žaidimas įveiktas!", 2);
+  setTimeout(nextStage, 1800);
+  return;
+}
           } else {
             respawnCurrentStage("Neteisinga plytelė 💀");
             return;
@@ -788,13 +799,15 @@
       if (distance(p, target) < 26) {
         honey.progress++;
 
-        if (honey.progress >= honey.targetPoints.length) {
-          honey.active = false;
-          honeycombOverlay.style.display = "none";
-          controlsLocked = false;
-          showBigMessage("4 žaidimas įveiktas!", 2);
-          setTimeout(nextStage, 1800);
-        }
+      if (honey.progress >= honey.targetPoints.length) {
+  if (stageTransitioning) return;
+  stageTransitioning = true;
+  honey.active = false;
+  honeycombOverlay.style.display = "none";
+  controlsLocked = true;
+  showBigMessage("4 žaidimas įveiktas!", 2);
+  setTimeout(nextStage, 1800);
+}
       } else {
         // jei per toli nuo sekančio taško – pralaimi
         if (distance(p, target) > 80) {
@@ -918,16 +931,17 @@
     // -------------------------
     // STAGE MANAGER
     // -------------------------
-    function startStage(num) {
-      stage = num;
-      updateUI();
+   function startStage(num) {
+  stage = num;
+  stageTransitioning = false;
+  updateUI();
 
-      if (stage === 1) buildStage1();
-      else if (stage === 2) buildStage2();
-      else if (stage === 3) buildStage3();
-      else if (stage === 4) buildStage4();
-      else if (stage === 5) buildStage5();
-    }
+  if (stage === 1) buildStage1();
+  else if (stage === 2) buildStage2();
+  else if (stage === 3) buildStage3();
+  else if (stage === 4) buildStage4();
+  else if (stage === 5) buildStage5();
+}
 
     function updateStages(delta) {
       if (stage === 1) updateStage1(delta);
