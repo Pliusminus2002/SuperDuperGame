@@ -2,6 +2,7 @@
 <html lang="lt">
 <head>
   <meta charset="UTF-8" />
+  <base href="/SuperDuperGame/">
   <title>Squid Game</title>
   <link rel="icon" href="data:,">
   <style>
@@ -137,8 +138,8 @@
   </div>
 
   <script type="module">
-import * as THREE from "./three.module.js";
-import { GLTFLoader } from "./GLTFLoader.js";
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
     const canvas = document.getElementById("game");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
@@ -186,14 +187,15 @@ let jumpVelocity = 0;
 let onGround = true;
 const GRAVITY = 25;
 const JUMP_FORCE = 9;
-    const keys = {
-      w: false,
-      a: false,
-      s: false,
-      d: false,
-      shift: false,
-      space: false,
-    };
+  const keys = {
+  w: false,
+  a: false,
+  s: false,
+  d: false,
+  shift: false,
+  space: false,
+  e: false,
+};
 
     let controlsLocked = false;
     let stage = 1;
@@ -850,7 +852,7 @@ function updateAnimState() {
       fight = { active: true };
 
       showBigMessage("Finalas\nNPC kova", 2);
-      showHint("Priartėk ir spausk SPACE atakai.");
+      showHint("Priartėk ir spausk E atakai.");
     }
 
     function updateStage5(delta) {
@@ -881,11 +883,11 @@ function updateAnimState() {
         showHint("NPC trenkė tau!");
       }
 
-      if (keys.space && dist < 2.6 && playerAttackCooldown <= 0) {
-        playerAttackCooldown = 0.55;
-        enemyHp -= 18;
-        showHint("Tu trenkiai NPC!");
-      }
+     if (keys.e && dist < 2.6 && playerAttackCooldown <= 0) {
+  playerAttackCooldown = 0.55;
+  enemyHp -= 18;
+  showHint("Tu trenkiai NPC!");
+}
 
       if (playerHp <= 0) {
         barWrap.style.display = "none";
@@ -926,32 +928,35 @@ function updateAnimState() {
       else if (stage === 5) updateStage5(delta);
     }
 
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "w" || e.key === "W") keys.w = true;
-      if (e.key === "a" || e.key === "A") keys.a = true;
-      if (e.key === "s" || e.key === "S") keys.s = true;
-      if (e.key === "d" || e.key === "D") keys.d = true;
-      if (e.key === "Shift") keys.shift = true;
-      if (e.key === " " && !keys.space) {
-  keys.space = true;
+window.addEventListener("keydown", (e) => {
+  if (e.key === "w" || e.key === "W") keys.w = true;
+  if (e.key === "a" || e.key === "A") keys.a = true;
+  if (e.key === "s" || e.key === "S") keys.s = true;
+  if (e.key === "d" || e.key === "D") keys.d = true;
+  if (e.key === "Shift") keys.shift = true;
+  if (e.key === "e" || e.key === "E") keys.e = true;
 
-  if (onGround && !isJumping) {
-    isJumping = true;
-    onGround = false;
-    jumpVelocity = JUMP_FORCE;
-    if (actions.jump) fadeToAction("jump", 0.1, true);
+  if (e.key === " " && !keys.space) {
+    keys.space = true;
+
+    if (onGround && !isJumping) {
+      isJumping = true;
+      onGround = false;
+      jumpVelocity = JUMP_FORCE;
+      if (actions.jump) fadeToAction("jump", 0.1, true);
+    }
   }
-}
-    });
+});
 
-    window.addEventListener("keyup", (e) => {
-      if (e.key === "w" || e.key === "W") keys.w = false;
-      if (e.key === "a" || e.key === "A") keys.a = false;
-      if (e.key === "s" || e.key === "S") keys.s = false;
-      if (e.key === "d" || e.key === "D") keys.d = false;
-      if (e.key === "Shift") keys.shift = false;
-      if (e.key === " ") keys.space = false;
-    });
+window.addEventListener("keyup", (e) => {
+  if (e.key === "w" || e.key === "W") keys.w = false;
+  if (e.key === "a" || e.key === "A") keys.a = false;
+  if (e.key === "s" || e.key === "S") keys.s = false;
+  if (e.key === "d" || e.key === "D") keys.d = false;
+  if (e.key === "Shift") keys.shift = false;
+  if (e.key === "e" || e.key === "E") keys.e = false;
+  if (e.key === " ") keys.space = false;
+});
 
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -960,7 +965,7 @@ function updateAnimState() {
     });
 
 loader.load(
-  "./models/ninja@idle.glb",
+  "models/ninja@idle.glb",
   (gltf) => {
     player = gltf.scene;
     player.scale.set(1.6, 1.6, 1.6);
@@ -983,9 +988,9 @@ loader.load(
       activeAction = actions.idle;
       activeAction.play();
 
-      loadAnim("walk", "./models/ninja@walking.glb");
-      loadAnim("run", "./models/ninja@running.glb");
-      loadAnim("jump", "./models/ninja@jump.glb");
+      loadAnim("walk", "models/ninja@walking.glb");
+      loadAnim("run", "models/ninja@running.glb");
+      loadAnim("jump", "models/ninja@jump.glb");
     }
 
     stateText.textContent = "Žaidimas paruoštas";
