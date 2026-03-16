@@ -1,143 +1,52 @@
 <!DOCTYPE html>
 <html lang="lt">
+<!DOCTYPE html>
+<html lang="lt">
 <head>
-  <meta charset="UTF-8" />
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: #000;
-      font-family: Arial, sans-serif;
-    }
+<meta charset="UTF-8">
+<title>Squid Game</title>
 
-    canvas {
-      display: block;
-    }
+<link rel="icon" href="data:,">
 
-    #ui {
-      position: fixed;
-      left: 16px;
-      top: 16px;
-      z-index: 20;
-      color: white;
-      background: rgba(0,0,0,0.55);
-      padding: 12px 14px;
-      border-radius: 12px;
-      min-width: 240px;
-      border: 1px solid rgba(255,255,255,0.2);
-    }
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
 
-    #bigMessage {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: white;
-      background: rgba(0,0,0,0.55);
-      z-index: 30;
-      font-size: 40px;
-      font-weight: 700;
-      padding: 30px;
-      white-space: pre-line;
-    }
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  font-family: Arial, sans-serif;
+}
 
-    #hint {
-      position: fixed;
-      left: 50%;
-      bottom: 20px;
-      transform: translateX(-50%);
-      z-index: 20;
-      color: white;
-      background: rgba(0,0,0,0.6);
-      padding: 10px 16px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.2);
-      display: none;
-    }
+canvas {
+  display: block;
+}
 
-    #honeycombOverlay {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.7);
-      z-index: 40;
-      flex-direction: column;
-      color: white;
-      gap: 12px;
-    }
-
-    #honeyCanvas {
-      background: #f4d27a;
-      border-radius: 16px;
-      border: 4px solid #d8a94a;
-      cursor: crosshair;
-    }
-
-    #barWrap {
-      margin-top: 8px;
-      display: none;
-    }
-
-    .hpRow {
-      margin-top: 6px;
-      font-size: 14px;
-    }
-
-    .hpBar {
-      width: 180px;
-      height: 14px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 999px;
-      overflow: hidden;
-      margin-top: 4px;
-    }
-
-    .hpFill {
-      height: 100%;
-      background: #ff4d4d;
-      width: 100%;
-    }
-
-    #enemyHpFill {
-      background: #6fd96f;
-    }
-  </style>
+#ui {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  z-index: 20;
+  color: white;
+  background: rgba(0,0,0,0.55);
+  padding: 12px 14px;
+  border-radius: 12px;
+  min-width: 240px;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+</style>
 </head>
 <body>
-  <canvas id="game"></canvas>
+<script type="module">
 
-  <div id="ui">
-    <div><b>Squid Game</b></div>
-    <div id="stageText">Stage: 1</div>
-    <div id="stateText">Loading...</div>
-    <div id="timerText">Laikas: --</div>
-
-    <div id="barWrap">
-      <div class="hpRow">Tavo HP</div>
-      <div class="hpBar"><div id="playerHpFill" class="hpFill"></div></div>
-
-      <div class="hpRow">NPC HP</div>
-      <div class="hpBar"><div id="enemyHpFill" class="hpFill"></div></div>
-    </div>
-  </div>
-
-  <div id="bigMessage"></div>
-  <div id="hint"></div>
-
-  <div id="honeycombOverlay">
-    <div id="honeyInfo">Honeycomb</div>
-    <canvas id="honeyCanvas" width="420" height="420"></canvas>
-    <div>Laikyk nuspaudęs pelę ir apvesk liniją. Neišeik už krašto.</div>
-  </div>
-
- <script type="module">
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";  const canvas = document.getElementById("game");
-    const scene = new THREE.Scene();
+import * as THREE from "three";
+import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";   const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
     scene.fog = new THREE.Fog(0x111111, 40, 220);
 
