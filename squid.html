@@ -2,7 +2,6 @@
 <html lang="lt">
 <head>
   <meta charset="UTF-8" />
-  <base href="/SuperDuperGame/">
   <style>
     body {
       margin: 0;
@@ -334,7 +333,7 @@ let stageTransitioning = false;
     }
 
 loader.load(
-  "/SuperDuperGame/models/ninja@idle.glb",
+  "models/ninja@idle.glb",
   (gltf) => {
     player = gltf.scene;
     player.scale.set(1.4, 1.4, 1.4);
