@@ -4,15 +4,6 @@
   <meta charset="UTF-8" />
   <title>Squid Game</title>
   <link rel="icon" href="data:,">
-
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-    }
-  }
-  </script>
-
   <style>
     body {
       margin: 0;
@@ -146,8 +137,8 @@
   </div>
 
   <script type="module">
-    import * as THREE from "three";
-    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js?module";
+    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js?module";
 
     const canvas = document.getElementById("game");
     const scene = new THREE.Scene();
@@ -169,8 +160,8 @@
     const light = new THREE.DirectionalLight(0xffffff, 1.2);
     light.position.set(20, 25, 10);
     scene.add(light);
-
     scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+
     const stageText = document.getElementById("stageText");
     const stateText = document.getElementById("stateText");
     const timerText = document.getElementById("timerText");
@@ -186,7 +177,7 @@
 
     const clock = new THREE.Clock();
     const loader = new GLTFLoader();
-let mixer = null;
+    let mixer = null;
     let player = null;
     let fallbackPlayer = null;
 
@@ -196,26 +187,26 @@ let mixer = null;
       s: false,
       d: false,
       shift: false,
-      space: false
+      space: false,
     };
 
     let controlsLocked = false;
     let stage = 1;
-    let stageStarted = false;
     let stageTimer = 0;
     let currentRoot = null;
-    
-
     let moveSpeed = 8;
     let enemy = null;
     let enemyHp = 100;
     let playerHp = 100;
     let enemyAttackCooldown = 0;
     let playerAttackCooldown = 0;
-let stageTransitioning = false;
-    // -------------------------
-    // COMMON HELPERS
-    // -------------------------
+    let stageTransitioning = false;
+    let rlgl = null;
+    let bridge = null;
+    let memoryGame = null;
+    let honey = null;
+    let fight = null;
+
     function showHint(text, sec = 2.5) {
       hint.textContent = text;
       hint.style.display = "block";
@@ -247,7 +238,7 @@ let stageTransitioning = false;
       currentRoot.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose?.();
         if (obj.material) {
-          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.());
+          if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose?.());
           else obj.material.dispose?.();
         }
       });
@@ -270,21 +261,19 @@ let stageTransitioning = false;
       return player || fallbackPlayer;
     }
 
-   function respawnCurrentStage(message = "Bandyk dar kartą") {
-  stageTransitioning = false;
-  showBigMessage(message, 1.7);
-  stageStarted = false;
-  controlsLocked = false;
-  startStage(stage);
-}
+    function respawnCurrentStage(message = "Bandyk dar kartą") {
+      stageTransitioning = false;
+      showBigMessage(message, 1.7);
+      controlsLocked = false;
+      startStage(stage);
+    }
 
-   function nextStage() {
-  stageTransitioning = false;
-  stage++;
-  stageStarted = false;
-  controlsLocked = false;
-  startStage(stage);
-}
+    function nextStage() {
+      stageTransitioning = false;
+      stage += 1;
+      controlsLocked = false;
+      startStage(stage);
+    }
 
     function goToMenuOrStory() {
       showBigMessage("Tu įveikei visus žaidimus!", 3);
@@ -296,7 +285,6 @@ let stageTransitioning = false;
     function updateCamera() {
       const obj = getPlayerObj();
       if (!obj) return;
-
       const targetPos = obj.position.clone();
       const desired = targetPos.clone().add(new THREE.Vector3(0, 7, 11));
       camera.position.lerp(desired, 0.08);
@@ -309,7 +297,6 @@ let stageTransitioning = false;
 
       let mx = 0;
       let mz = 0;
-
       if (keys.w) mz -= 1;
       if (keys.s) mz += 1;
       if (keys.a) mx -= 1;
@@ -321,64 +308,25 @@ let stageTransitioning = false;
       dir.normalize();
       const speed = keys.shift ? moveSpeed * 1.4 : moveSpeed;
       obj.position.add(dir.multiplyScalar(speed * delta));
-
       obj.rotation.y = Math.atan2(mx, mz);
     }
 
-    // -------------------------
-    // PLAYER LOAD
-    // -------------------------
     function createFallbackPlayer() {
       const g = new THREE.Group();
-
       const body = new THREE.Mesh(
         new THREE.CapsuleGeometry(0.5, 1.2, 4, 8),
         new THREE.MeshStandardMaterial({ color: 0x66ccff })
       );
       body.position.y = 1.1;
       g.add(body);
-
       fallbackPlayer = g;
       scene.add(fallbackPlayer);
       setPlayerPos(0, 0, 0);
     }
 
-    loader.load(
-      "./ninja@idle.glb",
-      (gltf) => {
-        player = gltf.scene;
-        player.scale.set(1.4, 1.4, 1.4);
-        scene.add(player);
-
-        if (gltf.animations && gltf.animations.length > 0) {
-          mixer = new THREE.AnimationMixer(player);
-          const idleAction = mixer.clipAction(gltf.animations[0]);
-          idleAction.play();
-        }
-
-        stateText.textContent = "Žaidimas paruoštas";
-        startStage(1);
-      },
-      undefined,
-      (err) => {
-        console.error("Nepavyko užkrauti ninja@idle.glb:", err);
-        stateText.textContent = "Modelis nerastas, naudojamas fallback";
-        createFallbackPlayer();
-        startStage(1);
-      }
-    );
-
-    // -------------------------
-    // STAGE 1 - RED LIGHT GREEN LIGHT
-    // -------------------------
-    let rlgl = null;
-
     function buildStage1() {
       makeStageRoot();
-
       const root = currentRoot;
-      const ARENA_X = 0;
-      const ARENA_Z = 0;
       const ARENA_RADIUS = 26;
 
       const floor = new THREE.Mesh(
@@ -386,7 +334,6 @@ let stageTransitioning = false;
         new THREE.MeshStandardMaterial({ color: 0xd8c07a })
       );
       floor.rotation.x = -Math.PI / 2;
-      floor.position.set(ARENA_X, 0, ARENA_Z);
       root.add(floor);
 
       const startLine = new THREE.Mesh(
@@ -419,7 +366,7 @@ let stageTransitioning = false;
         phaseT: 0,
         doll,
         lastPos: new THREE.Vector3(0, 0, 18),
-        moveThreshold: 0.025
+        moveThreshold: 0.025,
       };
 
       showBigMessage("1 žaidimas\nRed Light Green Light", 2);
@@ -459,28 +406,22 @@ let stageTransitioning = false;
 
       rlgl.lastPos.copy(obj.position);
 
-   if (obj.position.z <= -18) {
-  if (stageTransitioning) return;
-  stageTransitioning = true;
-  controlsLocked = true;
-  showBigMessage("1 žaidimas įveiktas!", 2);
-  setTimeout(nextStage, 1800);
-  return;
-}
+      if (obj.position.z <= -18) {
+        if (stageTransitioning) return;
+        stageTransitioning = true;
+        controlsLocked = true;
+        showBigMessage("1 žaidimas įveiktas!", 2);
+        setTimeout(nextStage, 1800);
+        return;
+      }
 
       if (stageTimer <= 0) {
         respawnCurrentStage("Baigėsi laikas 💀");
       }
     }
 
-    // -------------------------
-    // STAGE 2 - GLASS BRIDGE
-    // -------------------------
-    let bridge = null;
-
     function buildStage2() {
       makeStageRoot();
-
       const root = currentRoot;
 
       const floor = new THREE.Mesh(
@@ -491,15 +432,12 @@ let stageTransitioning = false;
       root.add(floor);
 
       const panels = [];
-      const safePath = [];
       const rows = 8;
       const rowSpacing = 4;
       const startZ = 14;
 
       for (let i = 0; i < rows; i++) {
         const safeSide = Math.random() < 0.5 ? "left" : "right";
-        safePath.push(safeSide);
-
         const z = startZ - i * rowSpacing;
 
         const left = new THREE.Mesh(
@@ -516,13 +454,7 @@ let stageTransitioning = false;
         right.position.set(2.2, 1.2, z);
         root.add(right);
 
-        panels.push({
-          row: i,
-          left,
-          right,
-          safe: safeSide,
-          broken: false
-        });
+        panels.push({ row: i, left, right, safe: safeSide, broken: false });
       }
 
       const startPlatform = new THREE.Mesh(
@@ -586,27 +518,21 @@ let stageTransitioning = false;
       }
 
       if (obj.position.z <= -18) {
-  if (stageTransitioning) return;
-  stageTransitioning = true;
-  controlsLocked = true;
-  showBigMessage("2 žaidimas įveiktas!", 2);
-  setTimeout(nextStage, 1800);
-  return;
-}
+        if (stageTransitioning) return;
+        stageTransitioning = true;
+        controlsLocked = true;
+        showBigMessage("2 žaidimas įveiktas!", 2);
+        setTimeout(nextStage, 1800);
+        return;
+      }
 
       if (stageTimer <= 0) {
         respawnCurrentStage("Baigėsi laikas 💀");
       }
     }
 
-    // -------------------------
-    // STAGE 3 - MEMORY TILES
-    // -------------------------
-    let memoryGame = null;
-
     function buildStage3() {
       makeStageRoot();
-
       const root = currentRoot;
       const tiles = [];
       const size = 2.5;
@@ -626,9 +552,7 @@ let stageTransitioning = false;
       }
 
       const sequence = [];
-      while (sequence.length < 5) {
-        sequence.push(Math.floor(Math.random() * tiles.length));
-      }
+      while (sequence.length < 5) sequence.push(Math.floor(Math.random() * tiles.length));
 
       setPlayerPos(0, 0.7, 7);
       stageTimer = 35;
@@ -642,7 +566,7 @@ let stageTransitioning = false;
         phase: "show",
         showIndex: 0,
         showTimer: 0,
-        touchedCooldown: 0
+        touchedCooldown: 0,
       };
 
       showBigMessage("3 žaidimas\nMemory Tiles", 2);
@@ -658,8 +582,7 @@ let stageTransitioning = false;
 
       if (memoryGame.phase === "show") {
         memoryGame.showTimer += delta;
-
-        memoryGame.tiles.forEach(t => t.material.color.set(0x555555));
+        memoryGame.tiles.forEach((t) => t.material.color.set(0x555555));
 
         const idx = memoryGame.sequence[memoryGame.showIndex];
         if (memoryGame.showTimer < 0.8 && idx !== undefined) {
@@ -668,15 +591,13 @@ let stageTransitioning = false;
 
         if (memoryGame.showTimer >= 1.1) {
           memoryGame.showTimer = 0;
-          memoryGame.showIndex++;
-
+          memoryGame.showIndex += 1;
           if (memoryGame.showIndex >= memoryGame.sequence.length) {
             memoryGame.phase = "input";
             controlsLocked = false;
             showHint("Dabar pakartok seką.");
           }
         }
-
         return;
       }
 
@@ -688,19 +609,18 @@ let stageTransitioning = false;
 
         if (onTile && memoryGame.touchedCooldown <= 0) {
           memoryGame.touchedCooldown = 0.45;
-
           if (memoryGame.sequence[memoryGame.inputIndex] === i) {
             t.material.color.set(0x55ff55);
-            memoryGame.inputIndex++;
+            memoryGame.inputIndex += 1;
 
-           if (memoryGame.inputIndex >= memoryGame.sequence.length) {
-  if (stageTransitioning) return;
-  stageTransitioning = true;
-  controlsLocked = true;
-  showBigMessage("3 žaidimas įveiktas!", 2);
-  setTimeout(nextStage, 1800);
-  return;
-}
+            if (memoryGame.inputIndex >= memoryGame.sequence.length) {
+              if (stageTransitioning) return;
+              stageTransitioning = true;
+              controlsLocked = true;
+              showBigMessage("3 žaidimas įveiktas!", 2);
+              setTimeout(nextStage, 1800);
+              return;
+            }
           } else {
             respawnCurrentStage("Neteisinga plytelė 💀");
             return;
@@ -713,14 +633,8 @@ let stageTransitioning = false;
       }
     }
 
-    // -------------------------
-    // STAGE 4 - HONEYCOMB
-    // -------------------------
-    let honey = null;
-
     function buildStage4() {
       makeStageRoot();
-
       const root = currentRoot;
       const floor = new THREE.Mesh(
         new THREE.CircleGeometry(12, 40),
@@ -738,7 +652,7 @@ let stageTransitioning = false;
         active: true,
         drawing: false,
         progress: 0,
-        targetPoints: createHoneyPath()
+        targetPoints: createHoneyPath(),
       };
 
       honeycombOverlay.style.display = "flex";
@@ -747,20 +661,18 @@ let stageTransitioning = false;
     }
 
     function createHoneyPath() {
-      // paprasta “žvaigždės / trikampio” seka
       return [
         { x: 210, y: 70 },
         { x: 300, y: 170 },
         { x: 255, y: 320 },
         { x: 165, y: 320 },
         { x: 120, y: 170 },
-        { x: 210, y: 70 }
+        { x: 210, y: 70 },
       ];
     }
 
     function drawHoneycomb() {
       honeyCtx.clearRect(0, 0, honeyCanvas.width, honeyCanvas.height);
-
       honeyCtx.fillStyle = "#f4d27a";
       honeyCtx.fillRect(0, 0, honeyCanvas.width, honeyCanvas.height);
 
@@ -772,9 +684,7 @@ let stageTransitioning = false;
       honeyCtx.beginPath();
       const pts = honey.targetPoints;
       honeyCtx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) {
-        honeyCtx.lineTo(pts[i].x, pts[i].y);
-      }
+      for (let i = 1; i < pts.length; i++) honeyCtx.lineTo(pts[i].x, pts[i].y);
       honeyCtx.stroke();
 
       honeyCtx.lineWidth = 4;
@@ -786,7 +696,7 @@ let stageTransitioning = false;
       const rect = honeyCanvas.getBoundingClientRect();
       return {
         x: (e.clientX - rect.left) * (honeyCanvas.width / rect.width),
-        y: (e.clientY - rect.top) * (honeyCanvas.height / rect.height)
+        y: (e.clientY - rect.top) * (honeyCanvas.height / rect.height),
       };
     }
 
@@ -817,24 +727,21 @@ let stageTransitioning = false;
       if (!target) return;
 
       if (distance(p, target) < 26) {
-        honey.progress++;
+        honey.progress += 1;
 
-      if (honey.progress >= honey.targetPoints.length) {
-  if (stageTransitioning) return;
-  stageTransitioning = true;
-  honey.active = false;
-  honeycombOverlay.style.display = "none";
-  controlsLocked = true;
-  showBigMessage("4 žaidimas įveiktas!", 2);
-  setTimeout(nextStage, 1800);
-}
-      } else {
-        // jei per toli nuo sekančio taško – pralaimi
-        if (distance(p, target) > 80) {
-          honeycombOverlay.style.display = "none";
+        if (honey.progress >= honey.targetPoints.length) {
+          if (stageTransitioning) return;
+          stageTransitioning = true;
           honey.active = false;
-          respawnCurrentStage("Sulaužei honeycomb 💀");
+          honeycombOverlay.style.display = "none";
+          controlsLocked = true;
+          showBigMessage("4 žaidimas įveiktas!", 2);
+          setTimeout(nextStage, 1800);
         }
+      } else if (distance(p, target) > 80) {
+        honeycombOverlay.style.display = "none";
+        honey.active = false;
+        respawnCurrentStage("Sulaužei honeycomb 💀");
       }
     });
 
@@ -846,14 +753,8 @@ let stageTransitioning = false;
       }
     }
 
-    // -------------------------
-    // STAGE 5 - FINAL NPC FIGHT (simple prototype)
-    // -------------------------
-    let fight = null;
-
     function buildStage5() {
       makeStageRoot();
-
       const root = currentRoot;
 
       const arena = new THREE.Mesh(
@@ -877,13 +778,9 @@ let stageTransitioning = false;
       playerAttackCooldown = 0;
       stageTimer = 80;
       controlsLocked = false;
-
       barWrap.style.display = "block";
       stateText.textContent = "Final Fight";
-
-      fight = {
-        active: true
-      };
+      fight = { active: true };
 
       showBigMessage("Finalas\nNPC kova", 2);
       showHint("Priartėk ir spausk SPACE atakai.");
@@ -900,12 +797,8 @@ let stageTransitioning = false;
       const dir = new THREE.Vector3().subVectors(obj.position, enemy.position);
       dir.y = 0;
       const dist = dir.length();
+      if (dist > 0.001) dir.normalize();
 
-      if (dist > 0.001) {
-        dir.normalize();
-      }
-
-      // enemy chase
       if (dist > 2.2) {
         enemy.position.add(dir.multiplyScalar(4 * delta));
       }
@@ -915,14 +808,12 @@ let stageTransitioning = false;
         obj.position.z - enemy.position.z
       );
 
-      // enemy attack
       if (dist < 2.2 && enemyAttackCooldown <= 0) {
         enemyAttackCooldown = 1.0;
         playerHp -= 12;
         showHint("NPC trenkė tau!");
       }
 
-      // player attack
       if (keys.space && dist < 2.6 && playerAttackCooldown <= 0) {
         playerAttackCooldown = 0.55;
         enemyHp -= 18;
@@ -948,20 +839,17 @@ let stageTransitioning = false;
       }
     }
 
-    // -------------------------
-    // STAGE MANAGER
-    // -------------------------
-   function startStage(num) {
-  stage = num;
-  stageTransitioning = false;
-  updateUI();
+    function startStage(num) {
+      stage = num;
+      stageTransitioning = false;
+      updateUI();
 
-  if (stage === 1) buildStage1();
-  else if (stage === 2) buildStage2();
-  else if (stage === 3) buildStage3();
-  else if (stage === 4) buildStage4();
-  else if (stage === 5) buildStage5();
-}
+      if (stage === 1) buildStage1();
+      else if (stage === 2) buildStage2();
+      else if (stage === 3) buildStage3();
+      else if (stage === 4) buildStage4();
+      else if (stage === 5) buildStage5();
+    }
 
     function updateStages(delta) {
       if (stage === 1) updateStage1(delta);
@@ -971,9 +859,6 @@ let stageTransitioning = false;
       else if (stage === 5) updateStage5(delta);
     }
 
-    // -------------------------
-    // INPUT
-    // -------------------------
     window.addEventListener("keydown", (e) => {
       if (e.key === "w" || e.key === "W") keys.w = true;
       if (e.key === "a" || e.key === "A") keys.a = true;
@@ -998,21 +883,39 @@ let stageTransitioning = false;
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // -------------------------
-    // LOOP
-    // -------------------------
+    loader.load(
+      "./ninja@idle.glb",
+      (gltf) => {
+        player = gltf.scene;
+        player.scale.set(1.4, 1.4, 1.4);
+        scene.add(player);
+
+        if (gltf.animations && gltf.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(player);
+          const idleAction = mixer.clipAction(gltf.animations[0]);
+          idleAction.play();
+        }
+
+        stateText.textContent = "Žaidimas paruoštas";
+        startStage(1);
+      },
+      undefined,
+      (err) => {
+        console.error("Nepavyko užkrauti ninja@idle.glb:", err);
+        stateText.textContent = "Modelis nerastas, naudojamas fallback";
+        createFallbackPlayer();
+        startStage(1);
+      }
+    );
+
     function animate() {
       requestAnimationFrame(animate);
-
-   const delta = clock.getDelta();
-
-if (mixer) mixer.update(delta);
-
-updatePlayerMovement(delta);
-updateStages(delta);
-updateCamera();
-updateUI();
-
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
+      updatePlayerMovement(delta);
+      updateStages(delta);
+      updateCamera();
+      updateUI();
       renderer.render(scene, camera);
     }
 
