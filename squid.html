@@ -147,7 +147,11 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";    scene.background = new THREE.Color(0x111111);
+    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+
+    const canvas = document.getElementById("game");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
     scene.fog = new THREE.Fog(0x111111, 40, 220);
 
     const camera = new THREE.PerspectiveCamera(
@@ -167,7 +171,6 @@
     scene.add(light);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-
     const stageText = document.getElementById("stageText");
     const stateText = document.getElementById("stateText");
     const timerText = document.getElementById("timerText");
