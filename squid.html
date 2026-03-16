@@ -137,6 +137,22 @@
   </div>
 
   <div id="bigMessage"></div>
+  <div id="partTwoOverlay" style="
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.95);
+  color: white;
+  z-index: 50;
+  font-size: 72px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+">
+  PART TWO
+</div>
   <div id="hint"></div>
 
   <div id="honeycombOverlay">
@@ -173,8 +189,9 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     const stageText = document.getElementById("stageText");
     const stateText = document.getElementById("stateText");
     const timerText = document.getElementById("timerText");
-    const bigMessage = document.getElementById("bigMessage");
-    const hint = document.getElementById("hint");
+  const bigMessage = document.getElementById("bigMessage");
+const partTwoOverlay = document.getElementById("partTwoOverlay");
+const hint = document.getElementById("hint");
     const honeycombOverlay = document.getElementById("honeycombOverlay");
     const honeyCanvas = document.getElementById("honeyCanvas");
     const honeyCtx = honeyCanvas.getContext("2d");
@@ -221,6 +238,9 @@ const JUMP_FORCE = 9;
     let memoryGame = null;
     let honey = null;
     let fight = null;
+   let stageWaitingStart = false;
+let firstMoveStarted = false;
+
 
     function showHint(text, sec = 2.5) {
       hint.textContent = text;
@@ -239,13 +259,37 @@ const JUMP_FORCE = 9;
         bigMessage.style.display = "none";
       }, sec * 1000);
     }
+function showPartTwo(sec = 2.5) {
+  partTwoOverlay.style.display = "flex";
+  clearTimeout(showPartTwo._t);
+  showPartTwo._t = setTimeout(() => {
+    partTwoOverlay.style.display = "none";
+  }, sec * 1000);
+}
 
-    function updateUI() {
-      stageText.textContent = `Stage: ${stage}`;
-      timerText.textContent = `Laikas: ${Math.max(0, Math.ceil(stageTimer))}`;
-      playerHpFill.style.width = `${Math.max(0, playerHp)}%`;
-      enemyHpFill.style.width = `${Math.max(0, enemyHp)}%`;
-    }
+function isTryingToMove() {
+  return keys.w || keys.a || keys.s || keys.d;
+}
+
+function waitForFirstMove(startText = "Pajudėk, kad pradėtum") {
+  stageWaitingStart = true;
+  firstMoveStarted = false;
+  controlsLocked = false;
+  stateText.textContent = startText;
+  timerText.textContent = "Laikas: --";
+}
+  function updateUI() {
+  stageText.textContent = `Stage: ${stage}`;
+
+  if (stageWaitingStart) {
+    timerText.textContent = "Laikas: --";
+  } else {
+    timerText.textContent = `Laikas: ${Math.max(0, Math.ceil(stageTimer))}`;
+  }
+
+  playerHpFill.style.width = `${Math.max(0, playerHp)}%`;
+  enemyHpFill.style.width = `${Math.max(0, enemyHp)}%`;
+}
 
     function clearStageRoot() {
       if (!currentRoot) return;
@@ -327,13 +371,7 @@ function updateAnimState() {
       startStage(stage);
     }
 
-    function nextStage() {
-      stageTransitioning = false;
-      stage += 1;
-      controlsLocked = false;
-      startStage(stage);
-    }
-
+    startStage(stage);
     function goToMenuOrStory() {
       showBigMessage("Tu įveikei visus žaidimus!", 3);
       setTimeout(() => {
@@ -433,11 +471,9 @@ function updateAnimState() {
       );
       doll.position.set(0, 2, -22);
       root.add(doll);
-
-      setPlayerPos(0, 0, 18);
-      stageTimer = 45;
-      stateText.textContent = "🟢 GREEN LIGHT";
-
+setPlayerPos(0, 0, 18);
+stageTimer = 45;
+waitForFirstMove("Pajudėk, kad prasidėtų 1 žaidimas");
       rlgl = {
         phase: "green",
         phaseT: 0,
@@ -547,11 +583,10 @@ function updateAnimState() {
       );
       endPlatform.position.set(0, 0.5, -18);
       root.add(endPlatform);
-
-      setPlayerPos(0, 1.2, 18);
-      stageTimer = 70;
-      stateText.textContent = "Glass Bridge";
-      bridge = { panels, rows };
+setPlayerPos(0, 1.2, 18);
+stageTimer = 70;
+waitForFirstMove("Pajudėk, kad prasidėtų 2 žaidimas");
+bridge = { panels, rows };
 
       showBigMessage("2 žaidimas\nGlass Bridge", 2);
       showHint("Pasirink teisingą stiklo plytelę.");
@@ -631,33 +666,39 @@ function updateAnimState() {
       const sequence = [];
       while (sequence.length < 5) sequence.push(Math.floor(Math.random() * tiles.length));
 
-      setPlayerPos(0, 0.7, 7);
-      stageTimer = 35;
-      controlsLocked = true;
-      stateText.textContent = "Memory Tiles";
+    setPlayerPos(0, 0.7, 7);
+stageTimer = 35;
+controlsLocked = true;
+waitForFirstMove("Pajudėk, kad prasidėtų Memory Tiles");
 
-      memoryGame = {
-        tiles,
-        sequence,
-        inputIndex: 0,
-        phase: "show",
-        showIndex: 0,
-        showTimer: 0,
-        touchedCooldown: 0,
-      };
+memoryGame = {
+  tiles,
+  sequence,
+  inputIndex: 0,
+  phase: "show",
+  showIndex: 0,
+  showTimer: 0,
+  touchedCooldown: 0,
+  startDelay: 3.5,
+};
 
       showBigMessage("3 žaidimas\nMemory Tiles", 2);
       showHint("Įsimink seką ir užlipk ant plytelių ta pačia tvarka.", 4);
     }
 
-    function updateStage3(delta) {
-      const obj = getPlayerObj();
-      if (!obj || !memoryGame) return;
+   function updateStage3(delta) {
+  const obj = getPlayerObj();
+  if (!obj || !memoryGame) return;
 
-      stageTimer -= delta;
-      memoryGame.touchedCooldown -= delta;
+  stageTimer -= delta;
+  memoryGame.touchedCooldown -= delta;
 
-      if (memoryGame.phase === "show") {
+  if (memoryGame.startDelay > 0) {
+    memoryGame.startDelay -= delta;
+    return;
+  }
+
+  if (memoryGame.phase === "show") {
         memoryGame.showTimer += delta;
         memoryGame.tiles.forEach((t) => t.material.color.set(0x555555));
 
@@ -720,10 +761,10 @@ function updateAnimState() {
       floor.rotation.x = -Math.PI / 2;
       root.add(floor);
 
-      setPlayerPos(0, 0, 0);
-      controlsLocked = true;
-      stageTimer = 25;
-      stateText.textContent = "Honeycomb";
+    setPlayerPos(0, 0, 0);
+controlsLocked = true;
+stageTimer = 25;
+waitForFirstMove("Pajudėk, kad prasidėtų Honeycomb");
 
       honey = {
         active: true,
@@ -732,9 +773,8 @@ function updateAnimState() {
         targetPoints: createHoneyPath(),
       };
 
-      honeycombOverlay.style.display = "flex";
-      showBigMessage("4 žaidimas\nHoneycomb", 2);
-      drawHoneycomb();
+   honeycombOverlay.style.display = "none";
+showBigMessage("4 žaidimas\nHoneycomb", 2);
     }
 
     function createHoneyPath() {
@@ -822,13 +862,18 @@ function updateAnimState() {
       }
     });
 
-    function updateStage4(delta) {
-      stageTimer -= delta;
-      if (stageTimer <= 0) {
-        honeycombOverlay.style.display = "none";
-        respawnCurrentStage("Baigėsi laikas 💀");
-      }
-    }
+ function updateStage4(delta) {
+  if (honeycombOverlay.style.display === "none") {
+    honeycombOverlay.style.display = "flex";
+    drawHoneycomb();
+  }
+
+  stageTimer -= delta;
+  if (stageTimer <= 0) {
+    honeycombOverlay.style.display = "none";
+    respawnCurrentStage("Baigėsi laikas 💀");
+  }
+}
 
     function buildStage5() {
       makeStageRoot();
@@ -853,11 +898,11 @@ function updateAnimState() {
       enemyHp = 100;
       enemyAttackCooldown = 0;
       playerAttackCooldown = 0;
-      stageTimer = 80;
-      controlsLocked = false;
-      barWrap.style.display = "block";
-      stateText.textContent = "Final Fight";
-      fight = { active: true };
+     stageTimer = 80;
+controlsLocked = false;
+barWrap.style.display = "block";
+waitForFirstMove("Pajudėk, kad prasidėtų finalas");
+fight = { active: true };
 
       showBigMessage("Finalas\nNPC kova", 2);
       showHint("Priartėk ir spausk E atakai.");
@@ -928,14 +973,28 @@ function updateAnimState() {
       else if (stage === 5) buildStage5();
     }
 
-    function updateStages(delta) {
-      if (stage === 1) updateStage1(delta);
-      else if (stage === 2) updateStage2(delta);
-      else if (stage === 3) updateStage3(delta);
-      else if (stage === 4) updateStage4(delta);
-      else if (stage === 5) updateStage5(delta);
-    }
+function updateStages(delta) {
+  if (stageWaitingStart) {
+    if (isTryingToMove()) {
+      stageWaitingStart = false;
+      firstMoveStarted = true;
 
+      if (stage === 1) stateText.textContent = "🟢 GREEN LIGHT";
+      else if (stage === 2) stateText.textContent = "Glass Bridge";
+      else if (stage === 3) stateText.textContent = "Memory Tiles";
+      else if (stage === 4) stateText.textContent = "Honeycomb";
+      else if (stage === 5) stateText.textContent = "Final Fight";
+    } else {
+      return;
+    }
+  }
+
+  if (stage === 1) updateStage1(delta);
+  else if (stage === 2) updateStage2(delta);
+  else if (stage === 3) updateStage3(delta);
+  else if (stage === 4) updateStage4(delta);
+  else if (stage === 5) updateStage5(delta);
+}
 window.addEventListener("keydown", (e) => {
   if (e.key === "w" || e.key === "W") keys.w = true;
   if (e.key === "a" || e.key === "A") keys.a = true;
