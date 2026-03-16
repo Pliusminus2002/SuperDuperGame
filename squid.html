@@ -134,10 +134,9 @@
     <div>Laikyk nuspaudęs pelę ir apvesk liniją. Neišeik už krašto.</div>
   </div>
 
-  <script type="module">
+ <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-    const canvas = document.getElementById("game");
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";  const canvas = document.getElementById("game");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
     scene.fog = new THREE.Fog(0x111111, 40, 220);
@@ -332,28 +331,30 @@ let stageTransitioning = false;
       setPlayerPos(0, 0, 0);
     }
 
-loader.load(
-  "models/ninja@idle.glb",
-  (gltf) => {
-    player = gltf.scene;
-    player.scale.set(1.4, 1.4, 1.4);
-    scene.add(player);
+    loader.load(
+      "./ninja@idle.glb",
+      (gltf) => {
+        player = gltf.scene;
+        player.scale.set(1.4, 1.4, 1.4);
+        scene.add(player);
 
-    if (gltf.animations && gltf.animations.length > 0) {
-      mixer = new THREE.AnimationMixer(player);
-      const idleAction = mixer.clipAction(gltf.animations[0]);
-      idleAction.play();
-    }
+        if (gltf.animations && gltf.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(player);
+          const idleAction = mixer.clipAction(gltf.animations[0]);
+          idleAction.play();
+        }
 
-    startStage(1);
-  },
-  undefined,
-  (err) => {
-    console.error("Nepavyko užkrauti ninja@idle.glb:", err);
-    createFallbackPlayer();
-    startStage(1);
-  }
-);
+        stateText.textContent = "Žaidimas paruoštas";
+        startStage(1);
+      },
+      undefined,
+      (err) => {
+        console.error("Nepavyko užkrauti ninja@idle.glb:", err);
+        stateText.textContent = "Modelis nerastas, naudojamas fallback";
+        createFallbackPlayer();
+        startStage(1);
+      }
+    );
 
     // -------------------------
     // STAGE 1 - RED LIGHT GREEN LIGHT
