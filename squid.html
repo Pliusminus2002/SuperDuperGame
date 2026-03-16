@@ -136,18 +136,9 @@
     <div>Laikyk nuspaudęs pelę ir apvesk liniją. Neišeik už krašto.</div>
   </div>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-    }
-  }
-  </script>
-
   <script type="module">
-    import * as THREE from "three";
-    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-
+import * as THREE from "./three.module.js";
+import { GLTFLoader } from "./GLTFLoader.js";
     const canvas = document.getElementById("game");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
@@ -188,7 +179,13 @@
     let mixer = null;
     let player = null;
     let fallbackPlayer = null;
-
+const actions = {};
+let activeAction = null;
+let isJumping = false;
+let jumpVelocity = 0;
+let onGround = true;
+const GRAVITY = 25;
+const JUMP_FORCE = 9;
     const keys = {
       w: false,
       a: false,
@@ -268,7 +265,51 @@
     function getPlayerObj() {
       return player || fallbackPlayer;
     }
+function fadeToAction(name, duration = 0.15, loopOnce = false) {
+  const action = actions[name];
+  if (!action || activeAction === action) return;
 
+  const prev = activeAction;
+  activeAction = action;
+
+  if (loopOnce) {
+    action.setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished = true;
+  } else {
+    action.setLoop(THREE.LoopRepeat);
+    action.clampWhenFinished = false;
+  }
+
+  action.reset().fadeIn(duration).play();
+  if (prev) prev.fadeOut(duration);
+}
+
+function loadAnim(name, url) {
+  loader.load(
+    url,
+    (gltf) => {
+      if (!mixer || !gltf.animations || gltf.animations.length === 0) return;
+      actions[name] = mixer.clipAction(gltf.animations[0]);
+    },
+    undefined,
+    (err) => console.error(`Nepavyko užkrauti animacijos ${name}:`, err)
+  );
+}
+
+function updateAnimState() {
+  if (!player || !activeAction) return;
+
+  if (isJumping) return;
+
+  const moving = keys.w || keys.a || keys.s || keys.d;
+
+  if (moving) {
+    if (keys.shift && actions.run) fadeToAction("run");
+    else if (actions.walk) fadeToAction("walk");
+  } else {
+    if (actions.idle) fadeToAction("idle");
+  }
+}
     function respawnCurrentStage(message = "Bandyk dar kartą") {
       stageTransitioning = false;
       showBigMessage(message, 1.7);
@@ -299,25 +340,43 @@
       camera.lookAt(targetPos.clone().add(new THREE.Vector3(0, 1.7, 0)));
     }
 
-    function updatePlayerMovement(delta) {
-      const obj = getPlayerObj();
-      if (!obj || controlsLocked) return;
+  function updatePlayerMovement(delta) {
+  const obj = getPlayerObj();
+  if (!obj || controlsLocked) return;
 
-      let mx = 0;
-      let mz = 0;
-      if (keys.w) mz -= 1;
-      if (keys.s) mz += 1;
-      if (keys.a) mx -= 1;
-      if (keys.d) mx += 1;
+  let mx = 0;
+  let mz = 0;
+  if (keys.w) mz -= 1;
+  if (keys.s) mz += 1;
+  if (keys.a) mx -= 1;
+  if (keys.d) mx += 1;
 
-      const dir = new THREE.Vector3(mx, 0, mz);
-      if (dir.lengthSq() === 0) return;
+  const dir = new THREE.Vector3(mx, 0, mz);
+  const moving = dir.lengthSq() > 0;
 
-      dir.normalize();
-      const speed = keys.shift ? moveSpeed * 1.4 : moveSpeed;
-      obj.position.add(dir.multiplyScalar(speed * delta));
-      obj.rotation.y = Math.atan2(mx, mz);
-    }
+  if (moving) {
+    dir.normalize();
+    const speed = keys.shift ? moveSpeed * 1.4 : moveSpeed;
+    obj.position.add(dir.multiplyScalar(speed * delta));
+    obj.rotation.y = Math.atan2(mx, mz);
+  }
+
+  jumpVelocity -= GRAVITY * delta;
+  obj.position.y += jumpVelocity * delta;
+
+  if (obj.position.y <= 0) {
+    obj.position.y = 0;
+    jumpVelocity = 0;
+    onGround = true;
+    isJumping = false;
+  } else {
+    onGround = false;
+  }
+
+  if (isJumping && onGround && actions.idle) {
+    fadeToAction("idle");
+  }
+}
 
     function createFallbackPlayer() {
       const g = new THREE.Group();
@@ -873,7 +932,16 @@
       if (e.key === "s" || e.key === "S") keys.s = true;
       if (e.key === "d" || e.key === "D") keys.d = true;
       if (e.key === "Shift") keys.shift = true;
-      if (e.key === " ") keys.space = true;
+      if (e.key === " " && !keys.space) {
+  keys.space = true;
+
+  if (onGround && !isJumping) {
+    isJumping = true;
+    onGround = false;
+    jumpVelocity = JUMP_FORCE;
+    if (actions.jump) fadeToAction("jump", 0.1, true);
+  }
+}
     });
 
     window.addEventListener("keyup", (e) => {
@@ -891,41 +959,62 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    loader.load(
-      "./ninja@idle.glb",
-      (gltf) => {
-        player = gltf.scene;
-        player.scale.set(1.4, 1.4, 1.4);
-        scene.add(player);
+loader.load(
+  "./models/ninja@idle.glb",
+  (gltf) => {
+    player = gltf.scene;
+    player.scale.set(1.6, 1.6, 1.6);
+    player.position.set(0, 0, 0);
+    player.rotation.y = Math.PI;
 
-        if (gltf.animations && gltf.animations.length > 0) {
-          mixer = new THREE.AnimationMixer(player);
-          const idleAction = mixer.clipAction(gltf.animations[0]);
-          idleAction.play();
-        }
-
-        stateText.textContent = "Žaidimas paruoštas";
-        startStage(1);
-      },
-      undefined,
-      (err) => {
-        console.error("Nepavyko užkrauti ninja@idle.glb:", err);
-        stateText.textContent = "Modelis nerastas, naudojamas fallback";
-        createFallbackPlayer();
-        startStage(1);
+    player.traverse((obj) => {
+      if (obj.isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
       }
-    );
+    });
 
-    function animate() {
-      requestAnimationFrame(animate);
-      const delta = clock.getDelta();
-      if (mixer) mixer.update(delta);
-      updatePlayerMovement(delta);
-      updateStages(delta);
-      updateCamera();
-      updateUI();
-      renderer.render(scene, camera);
+    scene.add(player);
+
+    if (gltf.animations && gltf.animations.length > 0) {
+      mixer = new THREE.AnimationMixer(player);
+
+      actions.idle = mixer.clipAction(gltf.animations[0]);
+      activeAction = actions.idle;
+      activeAction.play();
+
+      loadAnim("walk", "./models/ninja@walking.glb");
+      loadAnim("run", "./models/ninja@running.glb");
+      loadAnim("jump", "./models/ninja@jump.glb");
     }
+
+    stateText.textContent = "Žaidimas paruoštas";
+    startStage(1);
+  },
+  undefined,
+  (err) => {
+    console.error("Nepavyko užkrauti ./models/ninja@idle.glb:", err);
+    stateText.textContent = "Modelis nerastas, naudojamas fallback";
+    createFallbackPlayer();
+    startStage(1);
+  }
+);
+
+ function animate() {
+  requestAnimationFrame(animate);
+
+  const delta = clock.getDelta();
+
+  if (mixer) mixer.update(delta);
+
+  updatePlayerMovement(delta);
+  updateAnimState();
+  updateStages(delta);
+  updateCamera();
+  updateUI();
+
+  renderer.render(scene, camera);
+}
 
     animate();
   </script>
