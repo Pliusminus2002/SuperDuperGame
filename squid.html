@@ -5,6 +5,14 @@
   <base href="/SuperDuperGame/">
   <title>Squid Game</title>
   <link rel="icon" href="data:,">
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
   <style>
     body {
       margin: 0;
@@ -138,7 +146,7 @@
   </div>
 
   <script type="module">
-import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import * as THREE from "three";
 import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
     const canvas = document.getElementById("game");
     const scene = new THREE.Scene();
